@@ -382,12 +382,13 @@
   - ✅ **UI افزونه:** `popup/popup.html`+`popup.css`+`popup.js` (CSP-safe، بدون inline JS): بخش Backend (Base/Key/User + Save/Test)، Capture (Pick/Record + کارت عنصر انتخاب‌شده با add click/extract/copy)، Steps (شمارش/Clear/Send)، نوار وضعیت.
   - ✅ **تست:** `tsc`/`build` سبز؛ `npm test` = **۱۰۸** (+۵ تست `extension-selector.test.ts`: shortcut `#id`، مسیر class+`:nth-of-type`، خالی برای غیرعنصر، XPath `//*[@id=]`، مسیر مطلق ایندکس‌دار — با fake-DOM در sandbox `vm`، بدون افزودن jsdom). قراردادِ افزونه↔بک‌اند روی سرور در حال اجرا تأیید شد. تست واقعی pick/record در Chrome باید روی ماشین کاربر انجام شود (sandbox مرورگر گرافیکی ندارد).
 
-- [ ] **استپ ۱۴ — بهبود API برای ادغام n8n (نکته ۲ صاحب پروژه) (دسته F3/F5)**
-  1. افزودن حالت sync: `POST /run?wait=true` (صبر تا پایان + بازگشت نتیجه)
-  2. افزودن HMAC signature به webhook خروجی + هدر `X-Signature`
-  3. افزودن Idempotency-Key روی `/run`
-  4. نوشتن `docs/openapi.yaml` (Swagger) برای همه‌ی endpointها
-  5. افزودن CORS کنترل‌شده [F5] و rate limit برای endpointهای جدید
+- [x] **استپ ۱۴ — بهبود API برای ادغام n8n (نکته ۲ صاحب پروژه) (دسته F3/F5)** ✅
+  1. ✅ حالت sync: `POST /run?wait=true` — تا پایان جاب صبر می‌کند (سقف `RUN_WAIT_MAX_MS`، پیش‌فرض ۶۰s، با poll هر `RUN_WAIT_POLL_MS`) و نتیجهٔ کامل را inline برمی‌گرداند؛ در صورت timeout پاسخ `202` با `pollUrl` می‌دهد. helper جدید `waitForJobResult` در `user.routes.ts`.
+  2. ✅ امضای HMAC-SHA256 روی webhook خروجی: util جدید `src/utils/signature.ts` (`signWebhookBody`/`verifyWebhookSignature`، constant-time)؛ وقتی `WEBHOOK_SECRET` ست باشد هدرهای `X-Signature: sha256=<hex>` و `X-Webhook-Timestamp` به `sendWebhook` اضافه می‌شوند (امضا روی body دقیقِ روی‌سیم).
+  3. ✅ Idempotency-Key روی `/run`: هدر `Idempotency-Key` (الگوی `^[A-Za-z0-9_.:-]{1,200}$`)، نگاشت per-user در Redis (`idem:run:<user>:<key>`) با TTL=`IDEMPOTENCY_TTL_SECONDS` (پیش‌فرض ۲۴h)؛ درخواست تکراری همان jobId اصلی را با `idempotent:true` برمی‌گرداند بدون enqueue دوباره. اعتبارسنجی مشترک `isValidIdempotencyKey`.
+  4. ✅ `docs/openapi.yaml` (OpenAPI 3.0.3): ۱۰ مسیر + ۹ schema؛ مستندسازی `wait`، `Idempotency-Key`، امنیت `x-api-key`/`x-admin-token` و قرارداد webhook امضاشده.
+  5. ✅ CORS [F5] از قبل پیاده بود؛ هدر `Idempotency-Key` به `Access-Control-Allow-Headers` افزوده شد. `smartLimiter` همچنان روی `/run` فعال است (rate limit مشترک). کلیدهای جدید در `.env.example` مستند شدند.
+  - ✅ **تست:** `tsc`/`build` سبز؛ `npm test` = **۱۲۷** (+۱۹: ۱۰ `webhook-signature.test.ts`، ۴ `redis-keys.test.ts`، ۵ `run-n8n.test.ts` با mock connection/queue که dedup، sync-result و timeout→202 را روی هندلر واقعی `/run` تأیید می‌کند). بدون نیاز به Redis/مرورگر در sandbox.
 
 - [ ] **استپ ۱۵ — n8n Community Node (نکته ۲ صاحب پروژه) (دسته F4)**
   1. ساخت پکیج `n8n-nodes-automationbackend` (ساختار استاندارد n8n)

@@ -181,6 +181,22 @@ export const config = {
   WEBHOOK_ALLOW_PRIVATE_IPS: cleanEnv(process.env.WEBHOOK_ALLOW_PRIVATE_IPS) === 'true',
   WEBHOOK_MAX_RETRIES: parseInt(cleanEnv(process.env.WEBHOOK_MAX_RETRIES) || '3', 10),
   WEBHOOK_RETRY_BACKOFF_MS: parseInt(cleanEnv(process.env.WEBHOOK_RETRY_BACKOFF_MS) || '1000', 10),
+  // [F3] Optional shared secret. When set, every outgoing webhook is signed with
+  // HMAC-SHA256 over the raw JSON body; the digest is sent in the
+  // `X-Signature: sha256=<hex>` header (plus `X-Webhook-Timestamp`). Empty => unsigned.
+  WEBHOOK_SECRET: cleanEnv(process.env.WEBHOOK_SECRET) || '',
+
+  // ============================================
+  // n8n / API Integration (F3)
+  // ============================================
+  // Synchronous /run?wait=true: max time (ms) to block waiting for a job to
+  // finish before falling back to the async {jobId} response (HTTP 202).
+  RUN_WAIT_MAX_MS: parseInt(cleanEnv(process.env.RUN_WAIT_MAX_MS) || '60000', 10),
+  // Poll interval (ms) used while waiting for a synchronous job to complete.
+  RUN_WAIT_POLL_MS: parseInt(cleanEnv(process.env.RUN_WAIT_POLL_MS) || '500', 10),
+  // Idempotency-Key TTL (seconds): how long a (userId, key) -> jobId mapping is
+  // remembered so duplicate submissions return the original job instead of re-queuing.
+  IDEMPOTENCY_TTL_SECONDS: parseInt(cleanEnv(process.env.IDEMPOTENCY_TTL_SECONDS) || '86400', 10),
 
   // ============================================
   // Security

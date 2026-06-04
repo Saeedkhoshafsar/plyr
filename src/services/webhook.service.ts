@@ -1,5 +1,6 @@
 import { config } from '../config';
 import type { WebhookPayload } from '../types';
+import { signWebhookBody } from '../utils/signature';
 
 export const sendWebhook = async (
   url: string,
@@ -7,6 +8,16 @@ export const sendWebhook = async (
   maxRetries: number = config.WEBHOOK_MAX_RETRIES
 ): Promise<void> => {
   const baseBackoff = config.WEBHOOK_RETRY_BACKOFF_MS;
+
+  // [F3] Serialize the body ONCE so the signature is computed over the exact
+  // bytes we transmit. When WEBHOOK_SECRET is set, attach HMAC headers so the
+  // receiver (e.g. an n8n Webhook node) can verify authenticity + freshness.
+  const rawBody = JSON.stringify(payload);
+  const signatureHeaders: Record<string, string> = {};
+  if (config.WEBHOOK_SECRET) {
+    signatureHeaders['X-Signature'] = signWebhookBody(rawBody, config.WEBHOOK_SECRET);
+    signatureHeaders['X-Webhook-Timestamp'] = String(Math.floor(Date.now() / 1000));
+  }
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -18,9 +29,10 @@ export const sendWebhook = async (
         headers: {
           'Content-Type': 'application/json',
           'User-Agent': `AutomationBackend/${config.VERSION}`,
-          'X-Webhook-Attempt': String(attempt)
+          'X-Webhook-Attempt': String(attempt),
+          ...signatureHeaders
         },
-        body: JSON.stringify(payload),
+        body: rawBody,
         signal: controller.signal
       });
 

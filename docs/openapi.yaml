@@ -1,0 +1,461 @@
+openapi: 3.0.3
+info:
+  title: Automation Backend API
+  version: 40.0.0
+  description: >-
+    Self-hosted browser-automation backend. Submit declarative `steps`
+    workflows that run on a pooled Playwright browser, schedule recurring runs,
+    stream live progress, and receive signed webhooks. Designed to integrate
+    cleanly with n8n (see the synchronous `POST /run?wait=true` mode, the
+    `Idempotency-Key` header, and HMAC-signed outgoing webhooks).
+
+
+    ## Authentication
+
+    All user endpoints require an API key sent as the `x-api-key` header.
+    Admin endpoints additionally require the `x-admin-token` header.
+
+
+    ## n8n / API Integration (F3)
+
+    - **Synchronous runs:** `POST /run?wait=true` blocks until the job finishes
+      (bounded by `RUN_WAIT_MAX_MS`, default 60s) and returns the full result
+      inline. On timeout it returns `202` with a `pollUrl`.
+    - **Idempotency:** send an `Idempotency-Key` header on `POST /run`. A retry
+      with the same key (per user) returns the original job instead of creating
+      a duplicate. The mapping lives for `IDEMPOTENCY_TTL_SECONDS` (default 24h).
+    - **Signed webhooks:** when `WEBHOOK_SECRET` is configured, every outgoing
+      webhook carries `X-Signature: sha256=<hex HMAC of the raw body>` and
+      `X-Webhook-Timestamp` (unix seconds) so receivers can verify authenticity.
+
+servers:
+  - url: http://localhost:3000
+    description: Local development
+  - url: /
+    description: Same-origin (relative)
+
+tags:
+  - name: System
+    description: Health and identity
+  - name: Jobs
+    description: Submit, inspect, and cancel automation jobs
+  - name: Schedules
+    description: Recurring (cron) jobs
+  - name: Quota
+    description: Usage and plan limits
+
+security:
+  - ApiKeyAuth: []
+
+paths:
+  /health:
+    get:
+      tags: [System]
+      summary: Liveness / readiness probe
+      security: []
+      responses:
+        '200':
+          description: Service status (Redis, browser pool, Lua scripts).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+
+  /me:
+    get:
+      tags: [System]
+      summary: Resolve the caller's identity from the API key
+      responses:
+        '200':
+          description: Identity of the API-key owner.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  userId: { type: string, example: u1 }
+                  isAdmin: { type: boolean, example: false }
+                  keyPrefix: { type: string, nullable: true, example: ab12 }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /run:
+    post:
+      tags: [Jobs]
+      summary: Submit a new automation job
+      description: >-
+        Queues a job that executes the supplied `steps`. By default returns
+        immediately with a `jobId` (async). Pass `?wait=true` for synchronous
+        execution and/or an `Idempotency-Key` header to dedupe retries.
+      parameters:
+        - in: query
+          name: wait
+          required: false
+          schema: { type: string, enum: ['true', '1', 'false'] }
+          description: >-
+            When `true`/`1`, block until the job finishes (up to
+            `RUN_WAIT_MAX_MS`) and return the full result inline.
+        - in: header
+          name: Idempotency-Key
+          required: false
+          schema: { type: string, pattern: '^[A-Za-z0-9_.:-]{1,200}$' }
+          description: >-
+            Opaque client token. Repeating a request with the same key (per
+            user) returns the original job instead of enqueuing a duplicate.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RunBody' }
+      responses:
+        '200':
+          description: >-
+            Job accepted (async), OR — for `wait=true` — the completed job
+            result, OR a duplicate hit when an `Idempotency-Key` matches.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/RunAccepted'
+                  - $ref: '#/components/schemas/JobResult'
+                  - $ref: '#/components/schemas/IdempotentHit'
+        '202':
+          description: >-
+            `wait=true` timed out before completion; the job is still running.
+            Poll `pollUrl` for the result.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  jobId: { type: string }
+                  waited: { type: boolean, example: true }
+                  completed: { type: boolean, example: false }
+                  message: { type: string }
+                  pollUrl: { type: string, example: /job/u1/42 }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          description: Daily quota exhausted or per-user queue limit reached.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /schedule:
+    post:
+      tags: [Schedules]
+      summary: Create a recurring (cron) job
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ScheduleBody' }
+      responses:
+        '200':
+          description: Schedule created.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  schedule:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      key: { type: string, nullable: true }
+                      name: { type: string }
+                      cron: { type: string }
+                      nextRun: { type: string }
+                      runsLimit: { oneOf: [ { type: integer }, { type: string } ] }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          description: Schedule limit reached for this user's plan.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /schedules/{userId}:
+    get:
+      tags: [Schedules]
+      summary: List a user's active schedules
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: List of schedules.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  userId: { type: string }
+                  count: { type: integer }
+                  limit: { type: integer }
+                  remaining: { type: integer }
+                  schedules:
+                    type: array
+                    items: { $ref: '#/components/schemas/Schedule' }
+
+  /schedule/{userId}/{key}:
+    delete:
+      tags: [Schedules]
+      summary: Remove a schedule by its repeatable-job key
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - in: path
+          name: key
+          required: true
+          schema: { type: string }
+          description: URL-encoded repeatable-job key (from GET /schedules).
+      responses:
+        '200': { description: Schedule removed. }
+        '403': { description: Schedule belongs to another user. }
+        '404': { description: Schedule not found. }
+
+  /cancel/{userId}/{jobId}:
+    delete:
+      tags: [Jobs]
+      summary: Cancel a queued or running job
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - $ref: '#/components/parameters/JobId'
+        - in: query
+          name: closeBrowser
+          schema: { type: string, enum: ['true', 'false'] }
+          description: Force-close the whole browser context.
+        - in: query
+          name: closeTab
+          schema: { type: string, enum: ['true', 'false'] }
+          description: Close only the job's tab/page.
+      responses:
+        '200': { description: Cancellation processed. }
+        '404': { description: Job not found. }
+
+  /quota/{userId}:
+    get:
+      tags: [Quota]
+      summary: Get usage and plan limits for a user
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: Quota and plan details.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  userId: { type: string }
+                  userType: { type: string, enum: [VIP, Free] }
+                  plan: { type: object }
+                  usage: { type: object }
+
+  /jobs/{userId}:
+    get:
+      tags: [Jobs]
+      summary: List a user's recent jobs
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - in: query
+          name: limit
+          schema: { type: integer, default: 20, maximum: 100 }
+      responses:
+        '200':
+          description: List of jobs (most recent first).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  total: { type: integer }
+                  jobs:
+                    type: array
+                    items: { $ref: '#/components/schemas/JobSummary' }
+
+  /job/{userId}/{jobId}:
+    get:
+      tags: [Jobs]
+      summary: Get a single job's status / result
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200':
+          description: Job status (queued/active) or final result.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JobResult' }
+        '404': { description: Job not found. }
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+    AdminToken:
+      type: apiKey
+      in: header
+      name: x-admin-token
+
+  parameters:
+    UserId:
+      in: path
+      name: userId
+      required: true
+      schema: { type: string }
+    JobId:
+      in: path
+      name: jobId
+      required: true
+      schema: { type: string }
+
+  schemas:
+    Step:
+      type: object
+      description: A single declarative automation action.
+      required: [action]
+      properties:
+        action:
+          type: string
+          example: goto
+          description: e.g. goto, click, fill, press, extract, screenshot, if, while.
+        params:
+          type: object
+          additionalProperties: true
+      additionalProperties: true
+
+    RunBody:
+      type: object
+      required: [userId, steps]
+      properties:
+        userId:
+          oneOf: [ { type: string }, { type: integer } ]
+          example: u1
+        steps:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/Step' }
+        headless:
+          oneOf: [ { type: boolean }, { type: string }, { type: integer } ]
+          description: Run the browser headless. Defaults to DEFAULT_HEADLESS.
+        webhookUrl:
+          type: string
+          format: uri
+          nullable: true
+          description: Optional URL notified on job completion/failure (signed if WEBHOOK_SECRET set).
+
+    ScheduleBody:
+      allOf:
+        - $ref: '#/components/schemas/RunBody'
+        - type: object
+          required: [cron]
+          properties:
+            cron:
+              type: string
+              example: '0 9 * * *'
+              description: 5- or 6-field cron expression.
+            name:
+              type: string
+              maxLength: 120
+
+    RunAccepted:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        jobId: { type: string, example: '42' }
+        message: { type: string, example: Job queued successfully }
+        yourJobNumber: { type: integer }
+        queueLimit: { type: integer }
+        priority: { type: integer }
+        userType: { type: string, enum: [VIP, Free] }
+        webhookEnabled: { type: boolean }
+
+    IdempotentHit:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        jobId: { type: string }
+        idempotent: { type: boolean, example: true }
+        message: { type: string, example: Duplicate request - returning original job }
+
+    JobResult:
+      type: object
+      description: Persisted job result (also returned by GET /job and by wait=true).
+      properties:
+        success: { type: boolean }
+        jobId: { type: string }
+        state: { type: string, example: completed }
+        durationMs: { type: integer }
+        stepOutputs:
+          type: array
+          items: { type: object, additionalProperties: true }
+        waited: { type: boolean }
+        idempotent: { type: boolean }
+      additionalProperties: true
+
+    JobSummary:
+      type: object
+      properties:
+        jobId: { type: string }
+        state: { type: string }
+        progress: { type: number }
+        timestamp: { type: string, nullable: true }
+        failedReason: { type: string, nullable: true }
+        isScheduled: { type: boolean }
+        scheduleName: { type: string, nullable: true }
+
+    Schedule:
+      type: object
+      properties:
+        key: { type: string }
+        scheduleId: { type: string }
+        name: { type: string }
+        cron: { type: string }
+        nextRun: { type: string }
+        createdAt: { type: string, nullable: true }
+        timezone: { type: string }
+
+    Error:
+      type: object
+      properties:
+        success: { type: boolean, example: false }
+        error: { type: string }
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              path: { type: string }
+              message: { type: string }
+
+  responses:
+    BadRequest:
+      description: Validation error.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unauthorized:
+      description: Missing or invalid API key.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
+  # Outgoing webhook contract (documented for n8n receivers; not an inbound path).
+  # Headers (when WEBHOOK_SECRET is set):
+  #   X-Signature: sha256=<hex HMAC-SHA256 of the raw JSON body>
+  #   X-Webhook-Timestamp: <unix seconds>
+  #   X-Webhook-Attempt: <retry attempt number>
+  # Body: { event, jobId, userId, success, durationMs?, stepsCount?, error?, timestamp }

@@ -28,6 +28,7 @@ Backend اتوماسیون مرورگر مبتنی بر **Node.js + TypeScript**
 - **نمایش زندهٔ مرورگر + Element Picker:** مرورگر سروری را زنده داخل داشبورد ببینید (CDP Screencast روی WebSocket `/browser/ws`)، روی صفحه کلیک/تایپ/اسکرول کنید (تعامل دوطرفه با `Input.*`)، و با ابزار «انتخاب عنصر» سلکتور CSS/XPath را خودکار بسازید و با یک کلیک به‌صورت گام `click`/`extract` به فرم اجرا اضافه کنید. هر نشست یک context ایزوله با TTL بی‌کاری دارد.
 - **افزونهٔ کمکی Chrome (Manifest V3):** پوشهٔ [`extension/`](extension/README.md) — روی مرورگر واقعی خودتان عنصر انتخاب کنید (CSS/XPath با همان منطق Picker بک‌اند)، اکشن‌ها را ضبط کنید (click/fill/press/goto) و با API Key مستقیم از popup به‌صورت یک Flow (`POST /run`) به بک‌اند بفرستید. بدون build؛ از طریق *Load unpacked* نصب می‌شود. راهنمای نصب و نکتهٔ CORS در `extension/README.md`.
 - **Schedule:** زمان‌بندی cron با BullMQ repeatable jobs.
+- **ادغام n8n / API (F3):** حالت همگام `POST /run?wait=true` (صبر تا پایان جاب و بازگشت نتیجه به‌صورت inline؛ در timeout پاسخ `202` با `pollUrl`)، هدر `Idempotency-Key` برای جلوگیری از اجرای دوبارهٔ درخواست‌های تکراری، و **webhookهای امضاشده با HMAC-SHA256** (`X-Signature: sha256=…` + `X-Webhook-Timestamp` وقتی `WEBHOOK_SECRET` ست شود). مشخصات کامل OpenAPI در [`docs/openapi.yaml`](./docs/openapi.yaml).
 - **امنیت:** API Key، Admin Secret، Rate Limit، محافظت SSRF، Path-traversal guard.
 
 ---
@@ -121,7 +122,7 @@ docker compose down           # توقف
 
 ## مستندات API
 
-فهرست کامل endpointها، احراز هویت و نمونه‌ها در [`docs/API.md`](./docs/API.md).
+فهرست کامل endpointها، احراز هویت و نمونه‌ها در [`docs/API.md`](./docs/API.md). مشخصات ماشین‌خوانِ OpenAPI 3.0 (مناسب برای import در n8n/Swagger UI/Postman) در [`docs/openapi.yaml`](./docs/openapi.yaml).
 
 ---
 

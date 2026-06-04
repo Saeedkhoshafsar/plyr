@@ -12,6 +12,19 @@ export const getUserActiveJobsKey = (userId: string): string =>
 export const getUserLockKey = (userId: string): string =>
   `user:lock:${userId}`;
 
+// [F3] Idempotency-Key dedupe. Maps a (userId, client-supplied key) pair to the
+// jobId that was created for the first request, so retried POST /run calls return
+// the original job instead of enqueuing a duplicate. Scoped per-user so keys from
+// different users can never collide.
+export const getIdempotencyKey = (userId: string, key: string): string =>
+  `idem:run:${userId}:${key}`;
+
+// [F3] Format guard for a client-supplied Idempotency-Key: short, opaque, no
+// control chars, so it is safe to embed directly in a Redis key.
+const IDEMPOTENCY_KEY_RE = /^[A-Za-z0-9_.:-]{1,200}$/;
+export const isValidIdempotencyKey = (key: string): boolean =>
+  IDEMPOTENCY_KEY_RE.test(key);
+
 // === LIVE CHANNEL (Step 16) ===
 // Pub/Sub channel name for a job's live events.
 export const getLiveChannel = (userId: string, jobId: string): string =>

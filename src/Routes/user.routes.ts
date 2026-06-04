@@ -14,7 +14,7 @@ import {
 } from '../validation';
 import { runBodySchema, scheduleBodySchema, parseBody } from '../schemas';
 import { isVipUser } from '../utils/helpers';
-import { getUserActiveJobsKey } from '../utils/redis-keys';
+import { getUserActiveJobsKey, getIdempotencyKey, isValidIdempotencyKey } from '../utils/redis-keys';
 import { readJobFile, readPartialJobFile } from '../services/job.service';
 import type { AuthenticatedRequest } from '../middleware/auth';
 
@@ -26,6 +26,41 @@ interface UserRoutesDeps {
 }
 
 const SCHEDULE_PREFIX = 'sched';
+
+
+// [F3] Block until a job reaches a terminal state (completed/failed) or the
+// deadline elapses, used by POST /run?wait=true. Returns the persisted job file
+// (the same shape GET /job returns) on completion, or null on timeout so the
+// caller can fall back to the async {jobId} response.
+const waitForJobResult = async (
+  queue: Queue,
+  userId: string,
+  jobId: string,
+  maxMs: number,
+  pollMs: number
+): Promise<unknown | null> => {
+  const deadline = Date.now() + Math.max(0, maxMs);
+  // Terminal states whose result is persisted to disk by the worker.
+  const TERMINAL = new Set(['completed', 'failed']);
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const job = await queue.getJob(jobId);
+    if (job) {
+      const state = await job.getState();
+      if (TERMINAL.has(state)) {
+        const data = await readJobFile(userId, jobId);
+        if (data) return data;
+        // Result not flushed yet; give the worker a brief moment.
+      }
+    } else {
+      // Job object already evicted (removeOnComplete) but the file may exist.
+      const data = await readJobFile(userId, jobId);
+      if (data) return data;
+    }
+    if (Date.now() >= deadline) return null;
+    await new Promise((r) => setTimeout(r, pollMs));
+  }
+};
 
 export const createUserRoutes = (deps: UserRoutesDeps): Router => {
   const router = Router();
@@ -62,6 +97,36 @@ export const createUserRoutes = (deps: UserRoutesDeps): Router => {
       const plan = await UserManager.getUserPlan(connection, userId);
       const steps = validateSteps(body.steps, plan);
       const webhookUrl = validateWebhookUrl(body.webhookUrl);
+
+      // [F3] Sync mode + idempotency are opt-in via query / header.
+      const wait = req.query.wait === 'true' || req.query.wait === '1';
+      const rawIdemKey = (req.headers['idempotency-key'] as string | undefined)?.trim();
+      let idemKey: string | null = null;
+      if (rawIdemKey) {
+        if (!isValidIdempotencyKey(rawIdemKey)) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid Idempotency-Key. Allowed: [A-Za-z0-9_.:-], max 200 chars.'
+          });
+        }
+        idemKey = rawIdemKey;
+        // Return the original job for a previously-seen key instead of re-queuing.
+        const existingJobId = await connection.get(getIdempotencyKey(userId, idemKey));
+        if (existingJobId) {
+          if (wait) {
+            const result = await waitForJobResult(
+              queue, userId, existingJobId, config.RUN_WAIT_MAX_MS, config.RUN_WAIT_POLL_MS
+            );
+            if (result) return res.json({ ...(result as object), idempotent: true });
+          }
+          return res.status(200).json({
+            success: true,
+            jobId: existingJobId,
+            idempotent: true,
+            message: 'Duplicate request - returning original job'
+          });
+        }
+      }
 
       // Check quota
       const hasQuota = await quotaManager.hasQuotaRemaining(userId, plan.quota);
@@ -105,7 +170,41 @@ export const createUserRoutes = (deps: UserRoutesDeps): Router => {
       await connection.expire(activeKey, 90 * 60);
       const thisJobNumber = await connection.scard(activeKey);
 
+      // [F3] Remember the idempotency mapping so retries return this same job.
+      if (idemKey) {
+        await connection.set(
+          getIdempotencyKey(userId, idemKey),
+          job.id!,
+          'EX',
+          config.IDEMPOTENCY_TTL_SECONDS
+        );
+      }
+
       const isVip = isVipUser(plan.priority, config.VIP_PRIORITY_THRESHOLD);
+
+      // [F3] Synchronous mode: block until the job finishes (bounded), then return
+      // the full result inline. On timeout, fall through to the async 202 response
+      // so long jobs are still pollable via GET /job/:userId/:jobId.
+      if (wait) {
+        const result = await waitForJobResult(
+          queue, userId, job.id!, config.RUN_WAIT_MAX_MS, config.RUN_WAIT_POLL_MS
+        );
+        if (result) {
+          return res.json({
+            ...(result as object),
+            jobId: job.id,
+            waited: true
+          });
+        }
+        return res.status(202).json({
+          success: true,
+          jobId: job.id,
+          waited: true,
+          completed: false,
+          message: `Job still running after ${config.RUN_WAIT_MAX_MS}ms; poll GET /job/${userId}/${job.id}`,
+          pollUrl: `/job/${userId}/${job.id}`
+        });
+      }
 
       res.json({
         success: true,
