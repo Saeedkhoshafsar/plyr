@@ -318,12 +318,14 @@
   5. ✅ **[F5] CORS صریح:** middleware قابل‌تنظیم با `CORS_ALLOWED_ORIGINS` (env)؛ echo امن origin، پشتیبانی `*`, مدیریت preflight (۲۰۴)، هدرهای `x-api-key`/`x-admin-token`. origin غیرمجاز هیچ هدری نمی‌گیرد.
   6. ✅ **تست e2e واقعی (Playwright):** بارگذاری صفحه بدون خطای console، ورود با کلید تست → داشبورد «سیستم آنلاین»، ۳ کارت رندر شد. CORS با curl تأیید شد (allowed→headers، evil→none). `tsc --noEmit` و `npm run build` سبز.
 
-- [ ] **استپ ۸ — رابط کاربری (UI) — بخش ۲: ساخت/اجرا/مانیتور جاب (دسته D1)**
-  1. فرم ساخت Flow (افزودن step، action، params)
-  2. ارسال به `/run` و نمایش `jobId`
-  3. صفحه‌ی مانیتور: poll کردن `/job/:id` و نمایش خروجی stepها
-  4. صفحه‌ی Quota و لیست/حذف Scheduleها
-  5. پنل ادمین ساده (در صورت ورود با admin secret)
+- [x] **استپ ۸ — رابط کاربری (UI) — بخش ۲: ساخت/اجرا/مانیتور جاب (دسته D1)** ✅ 2026-06-04
+  1. ✅ فرم ساخت Flow در `public/js/views.js` (`window.Views`): کاتالوگ `ACTIONS` (goto/wait/click/fill/type/press/scroll/extract/screenshot/log) با فیلدهای params پویا، افزودن/حذف/جابجایی step، ورودی userId/webhook/headless، دکمه‌ی نمونه.
+  2. ✅ ارسال به `POST /run` (با coerce کردن فیلدهای عددی) و نمایش banner با `jobId` و لینک به صفحه‌ی جاب.
+  3. ✅ صفحه‌ی جاب‌ها: جدول لیست + poll هر ۸ث؛ جزئیات جاب (`GET /job/:userId/:jobId`) با poll هر ۳ث، badge وضعیت، نمایش `stepOutputs` به صورت JSON، توقف poll در پایان. دکمه‌ی cancel.
+  4. ✅ صفحه‌ی Quota (plan + usage) و صفحه‌ی Schedules (جدول + حذف با تأیید).
+  5. ✅ پنل ادمین: گیت توکن (`x-admin-token`) → `GET /admin/stats` → کارت‌های system/queue/raw. آیتم nav «پنل ادمین» اضافه شد.
+  6. ✅ i18n (fa+en) و styles توسعه یافت (فرم/جدول/step-builder/state-badge/json-block). `app.js` روتر به `window.Views` دلگیت می‌کند و `window.AppUtil` را export می‌کند. **باگ رفع‌شده:** `views.js` قبل از `app.js` لود می‌شود، پس `AppUtil` به صورت lazy (تابع `U()`) resolve شد نه capture در لود.
+  7. ✅ **تست e2e واقعی (Playwright):** login → dashboard → run → jobs → quota → schedules → admin panel، همه رندر شدند، **بدون خطای console**؛ سویچ زبان (dir) تأیید شد. `tsc --noEmit` و `npm run build` سبز؛ endpoint‌ها با curl تأیید شدند.
 
 - [ ] **استپ ۹ — تست و پایدارسازی (دسته D3)**
   1. افزودن `vitest`/`jest` و تست واحد برای `validation`, `helpers`, `ConditionEngine`

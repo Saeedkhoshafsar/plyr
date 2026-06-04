@@ -184,7 +184,7 @@
   // ---------------------------------------------
   // Views
   // ---------------------------------------------
-  var ROUTES = ['dashboard', 'run', 'jobs', 'schedules', 'quota'];
+  var ROUTES = ['dashboard', 'run', 'jobs', 'schedules', 'quota', 'admin'];
 
   function currentRoute() {
     var hash = (location.hash || '').replace(/^#\//, '');
@@ -301,8 +301,18 @@
     el.sidebar.classList.remove('open');
     removeOverlay();
 
-    if (route === 'dashboard') renderDashboardShell();
-    else renderComingSoon();
+    // stop any per-view polling from the previous view
+    if (window.Views && typeof window.Views.stopAll === 'function') {
+      window.Views.stopAll();
+    }
+
+    if (route === 'dashboard') { renderDashboardShell(); return; }
+
+    if (window.Views && typeof window.Views.render === 'function') {
+      window.Views.render(route, el.content);
+    } else {
+      renderComingSoon();
+    }
   }
 
   // ---------------------------------------------
@@ -350,6 +360,19 @@
       if (!el.app.hidden) handleRoute();
     });
   }
+
+  // ---------------------------------------------
+  // Shared utilities exposed to views.js
+  // ---------------------------------------------
+  window.AppUtil = {
+    toast: toast,
+    esc: esc,
+    num: num,
+    t: function (k) { return I18N.t(k); },
+    navigate: function (route) { location.hash = '#/' + route; },
+    lang: function () { return I18N.getLang(); },
+    formatUptime: formatUptime,
+  };
 
   // ---------------------------------------------
   // Boot

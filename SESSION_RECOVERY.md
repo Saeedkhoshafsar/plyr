@@ -4,7 +4,7 @@
 
 - **Repo:** https://github.com/Saeedkhoshafsar/plyr  (branch: `main`)
 - **پروژه:** `automation-backend` — بک‌اند اتوماسیون مرورگر (Node.js + TypeScript)، رایگان/متن‌باز/**Self-Hosted**.
-- **آخرین به‌روزرسانی این سند:** 2026-06-04 — پس از پایان استپ ۷.
+- **آخرین به‌روزرسانی این سند:** 2026-06-04 — پس از پایان استپ ۸.
 
 ---
 
@@ -82,7 +82,7 @@ PY
 - **Config:** `src/config.ts` (env-driven؛ `cleanEnv`، `parsePlans`، `CHROME_EXE` خالی=Chromium باندل‌شده).
 - **Pipeline اجرا:** `src/pipeline.ts` (`runPipeline`, Flow Engine: if/while/try/switch).
 - **Routes:** `src/Routes/` → `user.routes.ts` (/me,/run,/schedule,/quota,/jobs,/job,/cancel)، `admin.routes.ts` (/admin/*)، `health.routes.ts` (/health). Mount: user/health روی `/`، admin روی `/admin`. **`/me`** = هویت صاحب کلید (بدون strict-binding) برای login UI.
-- **UI (استپ ۷):** پوشه‌ی `public/` در **روت پروژه** (نه `src/`)؛ با `express.static(path.resolve(process.cwd(),'public'))` سرو می‌شود. فایل‌ها: `index.html`، `css/styles.css`، `js/i18n.js` (فارسی/انگلیسی + RTL/LTR)، `js/api.js` (`window.API`: کلید در localStorage `ab_api_key`، `validateKey`→`/me`)، `js/app.js` (login/router/theme/health). همه‌ی فایل‌های `public/**` با **LF** هستند (با Edit کار می‌کنند).
+- **UI (استپ ۷):** پوشه‌ی `public/` در **روت پروژه** (نه `src/`)؛ با `express.static(path.resolve(process.cwd(),'public'))` سرو می‌شود. فایل‌ها: `index.html`، `css/styles.css`، `js/i18n.js` (فارسی/انگلیسی + RTL/LTR)، `js/api.js` (`window.API`: کلید در localStorage `ab_api_key`، `validateKey`→`/me`)، `js/app.js` (login/router/theme/health + export `window.AppUtil`)، `js/views.js` (استپ ۸ — `window.Views`: run/jobs/jobDetail/quota/schedules/admin). **ترتیب لود مهم است:** i18n → api → views → app؛ `views.js` باید `AppUtil` را lazy (تابع `U()`) بخواند چون `app.js` بعداً آن را می‌سازد. همه‌ی فایل‌های `public/**` با **LF** هستند (با Edit کار می‌کنند).
 - **CORS (F5):** middleware صریح در `index.ts` با `config.CORS_ALLOWED_ORIGINS` (env کاما-جدا؛ `*` = هرجا بدون credentials؛ خالی = same-origin). CSP در helmet با `scriptSrc:'self'`/`connectSrc:'self'` ⇒ **JS باید خارجی باشد (نه inline)**.
 - **Core:** `ProfileManager` (مرورگر/قفل کاربر)، `GlobalBrowser` (مرورگر مشترک Free)، `QuotaManager`، `UserManager`.
 - **Validation:** `src/validation.ts` (sanitize عمیق steps) + `src/schemas.ts` (Zod envelope — استپ ۶).
@@ -96,9 +96,9 @@ PY
 
 **استپ‌های تمام‌شده:** ۱، ۲، ۳، ۴، ۵، ۵.۵، ۶، ۷ ✅
 
-**استپ بعدی برای شروع:** **استپ ۸ — رابط کاربری (UI) بخش ۲: ساخت/اجرا/مانیتور جاب** (فرم ساخت Flow و افزودن step/action/params → ارسال به `/run` و نمایش `jobId` → صفحه‌ی مانیتور با poll روی `/job/:userId/:jobId` → صفحه‌ی Quota و لیست/حذف Scheduleها → پنل ادمین ساده).
+**استپ بعدی برای شروع:** **استپ ۹ — تست و پایدارسازی (دسته D3)** (افزودن `vitest`/`jest` و تست واحد برای `validation`/`helpers`/`ConditionEngine` → تست یکپارچه‌ی مسیرهای API با mock Redis → اسکریپت `npm run check` (lint/type-check) → به‌روزرسانی README با نحوه‌ی اجرای تست).
 
-> 🧭 **برای استپ ۸ آماده است:** زیرساخت UI (router/i18n/theme/API client/CORS) کامل است؛ فقط viewهای جدید را در `public/js/app.js` (تابع `renderComingSoon` فعلاً placeholder روتهای run/jobs/schedules/quota است) جایگزین کن. `API.get/post/del` و `API.getUserId()` آماده‌اند. endpointهای لازم: `POST /run`، `GET /jobs/:userId`، `GET /job/:userId/:jobId`، `GET /quota/:userId`، `GET /schedules/:userId`، `POST /schedule`، `DELETE /schedule/:userId/:key`.
+> 🧭 **برای استپ ۹ آماده است:** کل UI (استپ‌های ۷+۸) کامل و e2e سبز است. برای استپ ۹: هدف تست‌های backend است. ماژول‌های خالص برای تست واحد: `src/validation.ts` (`validateSteps`)، `src/schemas.ts` (Zod)، `src/utils/*` (helpers)، `src/core/ConditionEngine` یا معادل آن در pipeline. دقت: همه‌ی `src/**/*.ts` و `package.json` **CRLF** هستند (برای ویرایش چندخطی از اسکریپت Python با `\r\n` استفاده کن). برای تست یکپارچه از `ioredis-mock` یا Redis زنده (`redis-server --daemonize yes`) استفاده کن.
 
 **خلاصه‌ی کارهای انجام‌شده‌ی کلیدی:**
 - استپ ۲: ۹ خطای TS رفع شد (import casing، UPLOADS/DOWNLOADS_DIR، redis param، ES2021+DOM lib، new Date guard، implicit any).
@@ -107,6 +107,8 @@ PY
 - استپ ۵: race مدیریت active jobs ([C2] `scard` بعد از `sadd`)، هماهنگی `unhandledRejection`/`uncaughtException`.
 - استپ ۵.۵: **قفل توزیع‌شده‌ی امن** (token + Lua compare-and-del در `ProfileManager`)، حذف همه‌ی `KEYS` با `scanKeys` (SCAN). تست زنده ۷ سناریو PASS.
 - استپ ۶: لایه‌ی Zod (`src/schemas.ts`) برای `/run` و `/schedule`، خطای یکدست؛ تست ۱۰ سناریو PASS.
+- استپ ۷: UI بخش ۱ — `public/` + static serving، login با API Key (localStorage `ab_api_key` + `GET /me`)، shell داشبورد (sidebar/topbar) RTL/LTR + i18n، اتصال به `/health`، **CORS صریح [F5]**. e2e Playwright PASS.
+- استپ ۸: UI بخش ۲ — `public/js/views.js` (`window.Views`): flow builder (`ACTIONS` catalog) → `POST /run`، صفحه‌ی jobs + job detail (poll)، Quota، Schedules (list/delete)، پنل admin (`x-admin-token` → `/admin/stats`). **باگ lazy `AppUtil`:** `views.js` قبل از `app.js` لود می‌شود پس `U()` به صورت lazy resolve شد. e2e Playwright بدون خطای console PASS.
 
 **باگ‌های ثبت‌شده که هنوز باز/بعداً:** بخش «دسته‌ها» در `PLAN.md` را ببین. (دسته‌های D–H در استپ‌های ۷+ پوشش داده می‌شوند.)
 

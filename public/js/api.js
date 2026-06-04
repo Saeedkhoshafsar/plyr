@@ -121,6 +121,48 @@
     });
   }
 
+  // ---------------------------------------------
+  // High-level resource helpers (step 8)
+  // ---------------------------------------------
+  function runFlow(payload) {
+    return post('/run', payload);
+  }
+  function listJobs(userId, limit) {
+    return get('/jobs/' + encodeURIComponent(userId) + '?limit=' + (limit || 20));
+  }
+  function getJob(userId, jobId) {
+    return get('/job/' + encodeURIComponent(userId) + '/' + encodeURIComponent(jobId));
+  }
+  function cancelJob(userId, jobId) {
+    return del('/cancel/' + encodeURIComponent(userId) + '/' + encodeURIComponent(jobId));
+  }
+  function getQuota(userId) {
+    return get('/quota/' + encodeURIComponent(userId));
+  }
+  function listSchedules(userId) {
+    return get('/schedules/' + encodeURIComponent(userId));
+  }
+  function deleteSchedule(userId, key) {
+    return del('/schedule/' + encodeURIComponent(userId) + '/' + encodeURIComponent(key));
+  }
+
+  /** Admin stats (requires admin token). */
+  function adminStats() {
+    return get('/admin/stats', { admin: true });
+  }
+
+  /**
+   * Validate an admin secret by calling /admin/stats with the token.
+   * Returns true on 2xx, false on 403.
+   */
+  function validateAdminToken(token) {
+    return fetch('/admin/stats', {
+      headers: { 'x-admin-token': token, Accept: 'application/json' },
+    }).then(function (res) {
+      return res.ok;
+    });
+  }
+
   window.API = {
     getKey: getKey,
     setKey: setKey,
@@ -129,6 +171,15 @@
     setUserId: setUserId,
     getAdminToken: getAdminToken,
     setAdminToken: setAdminToken,
+    runFlow: runFlow,
+    listJobs: listJobs,
+    getJob: getJob,
+    cancelJob: cancelJob,
+    getQuota: getQuota,
+    listSchedules: listSchedules,
+    deleteSchedule: deleteSchedule,
+    adminStats: adminStats,
+    validateAdminToken: validateAdminToken,
     request: request,
     get: get,
     post: post,
