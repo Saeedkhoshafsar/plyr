@@ -396,6 +396,61 @@ function createStepOutput(
 }
 
 // ════════════════════════════════════════════════════════════════
+// STEP 11 HELPERS — safe userId for FS, safe log text, CSV serializer
+// ════════════════════════════════════════════════════════════════
+
+function pipelineSafeUserId(id: string): string {
+  const s = String(id ?? '').trim();
+  const cleaned = s.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 50);
+  return cleaned.length > 0 ? cleaned : 'anon';
+}
+
+function pipelineSafeLog(msg: string): string {
+  return String(msg ?? '')
+    .replace(/[\r\n]/g, ' ')
+    .replace(/\x1b\[[0-9;]*m/g, '')
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\x00-\x1f\x7f]/g, '')
+    .substring(0, 500);
+}
+
+export function csvEscape(value: any): string {
+  if (value === null || value === undefined) return '';
+  let s = String(value);
+  if (typeof value === 'object') {
+    try { s = JSON.stringify(value); } catch { s = String(value); }
+  }
+  if (/[",\r\n]/.test(s)) {
+    s = '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
+
+export function toCsv(data: any): string {
+  // Array of objects -> rows with union of keys; array of scalars -> single column;
+  // single object -> key,value pairs; scalar -> single cell.
+  if (Array.isArray(data)) {
+    if (data.length === 0) return '';
+    const allObjects = data.every(r => r !== null && typeof r === 'object' && !Array.isArray(r));
+    if (allObjects) {
+      const keys: string[] = [];
+      data.forEach((row: any) => {
+        Object.keys(row).forEach(k => { if (keys.indexOf(k) === -1) keys.push(k); });
+      });
+      const header = keys.map(csvEscape).join(',');
+      const lines = data.map((row: any) => keys.map(k => csvEscape(row[k])).join(','));
+      return [header, ...lines].join('\r\n');
+    }
+    return data.map((v: any) => csvEscape(v)).join('\r\n');
+  }
+  if (data !== null && typeof data === 'object') {
+    const lines = Object.keys(data).map(k => csvEscape(k) + ',' + csvEscape(data[k]));
+    return ['key,value', ...lines].join('\r\n');
+  }
+  return csvEscape(data);
+}
+
+// ════════════════════════════════════════════════════════════════
 // VIP BROWSER SETUP
 // ════════════════════════════════════════════════════════════════
 
@@ -2258,6 +2313,196 @@ export async function runPipeline(params: {
               throw e;
             }
           }
+          continue;
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        // 40. COOKIE (get / set / getAll / clear) — [E2 Automa-style]
+        // ════════════════════════════════════════════════════════════════
+        if (step.action === 'cookie' || step.action === 'cookies') {
+          const op = String(finalParams.op || finalParams.action || 'getAll').toLowerCase();
+          const ctx = context.page!.context();
+          let resultData: any = null;
+
+          log(`[COOKIE] ${op}`);
+
+          if (op === 'set') {
+            const name = String(finalParams.name || '').trim();
+            if (!name) throw new Error('Cookie name required for set');
+            const value = String(finalParams.value ?? '');
+            let url = finalParams.url ? String(finalParams.url) : undefined;
+            const domain = finalParams.domain ? String(finalParams.domain) : undefined;
+            if (!url && !domain) {
+              url = context.page!.url();
+            }
+            const cookie: any = { name, value };
+            if (url) cookie.url = url;
+            if (domain) {
+              cookie.domain = domain;
+              cookie.path = finalParams.path ? String(finalParams.path) : '/';
+            }
+            if (finalParams.expires) cookie.expires = parseInt(finalParams.expires, 10);
+            await ctx.addCookies([cookie]);
+            resultData = { set: true, name };
+          } else if (op === 'get') {
+            const name = String(finalParams.name || '').trim();
+            const all = await ctx.cookies();
+            const found = all.find(c => c.name === name) || null;
+            resultData = found ? found.value : null;
+            if (step.saveAs) safeStoreVariable(context.variables, step.saveAs, resultData, log);
+          } else if (op === 'clear') {
+            await ctx.clearCookies();
+            resultData = { cleared: true };
+          } else {
+            // getAll (default)
+            const all = await ctx.cookies();
+            resultData = all.map(c => ({ name: c.name, value: c.value, domain: c.domain }));
+            if (step.saveAs) safeStoreVariable(context.variables, step.saveAs, resultData, log);
+          }
+
+          globalStepNumber++;
+          stepOutputs.push(createStepOutput(globalStepNumber, 'cookie', true, { op, data: resultData }, stepStartTime));
+          continue;
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        // 41. VARIABLE TRANSFORM (regex / slice / sort / split / replace) — [E2]
+        // ════════════════════════════════════════════════════════════════
+        if (step.action === 'variable' || step.action === 'transform' || step.action === 'set-variable') {
+          const op = String(finalParams.op || 'set').toLowerCase();
+          const target = String(finalParams.name || finalParams.target || '').trim();
+          if (!target) throw new Error('Variable name required');
+
+          // Source value: explicit "value", or read from an existing variable "from"
+          let src: any = finalParams.value;
+          if (finalParams.from) {
+            src = context.variables.get(String(finalParams.from));
+          }
+
+          let out: any = src;
+
+          if (op === 'set') {
+            out = src;
+          } else if (op === 'regex') {
+            // Safe regex with length + flag guards (anti-ReDoS: cap input size)
+            const patternStr = String(finalParams.pattern || '');
+            if (patternStr.length > 1000) throw new Error('Regex pattern too long');
+            const rawFlags = String(finalParams.flags || '');
+            const flags = (rawFlags.match(/[gimsu]/g) || []).join('').slice(0, 6);
+            const input = String(src ?? '').slice(0, 100000);
+            const re = new RegExp(patternStr, flags);
+            if (flags.includes('g')) {
+              out = input.match(re) || [];
+            } else {
+              const m = re.exec(input);
+              out = m ? (m[1] !== undefined ? m[1] : m[0]) : null;
+            }
+          } else if (op === 'replace') {
+            const patternStr = String(finalParams.pattern || '');
+            if (patternStr.length > 1000) throw new Error('Pattern too long');
+            const rawFlags = String(finalParams.flags || 'g');
+            const flags = (rawFlags.match(/[gimsu]/g) || []).join('').slice(0, 6);
+            const replacement = String(finalParams.replacement ?? '');
+            const input = String(src ?? '').slice(0, 100000);
+            out = input.replace(new RegExp(patternStr, flags), replacement);
+          } else if (op === 'slice') {
+            const start = parseInt(finalParams.start, 10) || 0;
+            const end = finalParams.end !== undefined && finalParams.end !== ''
+              ? parseInt(finalParams.end, 10) : undefined;
+            if (Array.isArray(src)) {
+              out = src.slice(start, end);
+            } else {
+              out = String(src ?? '').slice(start, end);
+            }
+          } else if (op === 'split') {
+            const sep = finalParams.separator !== undefined ? String(finalParams.separator) : ',';
+            out = String(src ?? '').split(sep);
+          } else if (op === 'join') {
+            const sep = finalParams.separator !== undefined ? String(finalParams.separator) : ',';
+            out = Array.isArray(src) ? src.join(sep) : String(src ?? '');
+          } else if (op === 'sort') {
+            const arr = Array.isArray(src) ? src.slice() : String(src ?? '').split(/\r?\n/);
+            const numeric = parseBoolean(finalParams.numeric);
+            const desc = parseBoolean(finalParams.desc);
+            arr.sort((a: any, b: any) => {
+              if (numeric) return Number(a) - Number(b);
+              return String(a).localeCompare(String(b));
+            });
+            if (desc) arr.reverse();
+            out = arr;
+          } else {
+            throw new Error(`Unknown variable op: ${op}`);
+          }
+
+          safeStoreVariable(context.variables, target, out, log);
+          log(`[VARIABLE] ${op} -> ${target}`);
+
+          globalStepNumber++;
+          stepOutputs.push(createStepOutput(globalStepNumber, 'variable', true, { op, name: target }, stepStartTime));
+          continue;
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        // 42. EXPORT DATA (json / csv to downloads dir) — [E3]
+        // ════════════════════════════════════════════════════════════════
+        if (step.action === 'export-data' || step.action === 'export_data' || step.action === 'export') {
+          const format = String(finalParams.format || 'json').toLowerCase();
+          // Data: explicit "data", or from a variable name, or whole variable store
+          let data: any = finalParams.data;
+          if (finalParams.from) {
+            data = context.variables.get(String(finalParams.from));
+          }
+          if (data === undefined || data === null) {
+            data = Object.fromEntries(context.variables);
+          }
+
+          const safeName = String(finalParams.filename || `export_${jobId}`)
+            .replace(/[^a-zA-Z0-9_.-]/g, '_')
+            .slice(0, 80);
+          const ext = format === 'csv' ? '.csv' : '.json';
+          const baseName = safeName.endsWith(ext) ? safeName : safeName + ext;
+
+          const userDownloadsDir = path.resolve(config.DOWNLOADS_DIR || './downloads', pipelineSafeUserId(userId));
+          await fs.promises.mkdir(userDownloadsDir, { recursive: true });
+          const outPath = validateFilePath(path.join(userDownloadsDir, baseName), userId, 'download');
+
+          let content = '';
+          if (format === 'csv') {
+            content = toCsv(data);
+          } else {
+            content = JSON.stringify(data, null, 2);
+          }
+
+          if (content.length > MAX_VARIABLE_SIZE) {
+            throw new Error('Export data too large (max 500KB)');
+          }
+
+          await fs.promises.writeFile(outPath, content, 'utf-8');
+          log(`[EXPORT] ${format} -> ${baseName} (${content.length} bytes)`);
+
+          const resultData = { file: baseName, format, bytes: content.length };
+          if (step.saveAs) safeStoreVariable(context.variables, step.saveAs, resultData, log);
+
+          globalStepNumber++;
+          stepOutputs.push(createStepOutput(globalStepNumber, 'export-data', true, resultData, stepStartTime));
+          continue;
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        // 43. NOTIFICATION (server-side log + step output) — [E2]
+        // ════════════════════════════════════════════════════════════════
+        if (step.action === 'notification' || step.action === 'notify') {
+          const title = pipelineSafeLog(String(finalParams.title || 'Notification'));
+          const message = pipelineSafeLog(String(finalParams.message || finalParams.body || ''));
+          const level = String(finalParams.level || 'info').toLowerCase();
+
+          log(`[NOTIFY:${level}] ${title}${message ? ' — ' + message : ''}`);
+
+          const resultData = { title, message, level };
+          if (step.saveAs) safeStoreVariable(context.variables, step.saveAs, resultData, log);
+
+          globalStepNumber++;
+          stepOutputs.push(createStepOutput(globalStepNumber, 'notification', true, resultData, stepStartTime));
           continue;
         }
 

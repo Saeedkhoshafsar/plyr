@@ -69,6 +69,95 @@ curl -X POST http://localhost:3000/run \
 
 ---
 
+## کاتالوگ اکشن‌ها (Steps)
+
+هر مرحله یک شیء `{ "action": "...", "params": { ... } }` است (فرمت قدیمی، پارامترها مستقیم کنار `action`، هم پشتیبانی می‌شود). فیلد اختیاری `saveAs` خروجی یک مرحله را در یک متغیر ذخیره می‌کند تا در مراحل بعد با `{{varName}}` استفاده شود.
+
+### ناوبری و زمان‌بندی
+| action | پارامترها | توضیح |
+|--------|-----------|-------|
+| `goto` | `url` | باز کردن یک آدرس (الیاس: `navigate`, `goto-url`) |
+| `wait` | `ms` یا `selector`+`state?`+`timeout?` یا `url`/`urlContains` یا `load` یا `fn` | انتظار زمانی یا انتظار برای عنصر/آدرس/بارگذاری/تابع |
+
+### تعامل با صفحه
+| action | پارامترها | توضیح |
+|--------|-----------|-------|
+| `click` | `selector` | کلیک (الیاس‌ها: `dblclick`, `hover`, `focus`) |
+| `hover` | `selector` | بردن نشانگر روی عنصر |
+| `scroll` | `direction` (`bottom`/`top`) | اسکرول صفحه |
+| `mouse-move` | `x`, `y` | حرکت ماوس (الیاس: `move-mouse`) |
+| `drag-drop` | `from`, `to` | کشیدن و رها کردن (الیاس: `drag`) |
+
+### فرم و کیبورد
+| action | پارامترها | توضیح |
+|--------|-----------|-------|
+| `fill` | `selector`, `text` | پر کردن سریع ورودی |
+| `type` | `selector`, `text` | تایپ کاراکتر به کاراکتر |
+| `press` | `text` (نام کلید مثل `Enter`) | فشردن کلید |
+| `select` | `selector`, `value` | انتخاب گزینه‌ی `<select>` |
+| `check` / `uncheck` | `selector` | تیک زدن/برداشتن چک‌باکس |
+| `upload` | `selector`, `path` | آپلود فایل (الیاس: `upload-file`) |
+
+### استخراج و خروجی داده
+| action | پارامترها | توضیح |
+|--------|-----------|-------|
+| `extract` | `selector`, `name` | استخراج متن/داده (الیاس: `scrape`, `get-data`) |
+| `attribute` | `selector`, `method` (`get`/`set`/`remove`), `name`, `value?` | کار با صفت عنصر |
+| `screenshot` | — | گرفتن اسکرین‌شات (در `saveAs` به‌صورت base64) |
+| `export-data` 🆕 | `format` (`json`/`csv`), `from?` (نام متغیر منبع)، `filename?`, `data?` | ذخیره‌ی داده در `downloads/<userId>/`؛ اگر `from`/`data` ندهید، کل متغیرها صادر می‌شود |
+
+### متغیرها و دستکاری داده
+| action | پارامترها | توضیح |
+|--------|-----------|-------|
+| `set_variable` | `name`, `value` یا `selector` | مقداردهی متغیر (از مقدار ثابت یا متن یک عنصر) |
+| `variable` 🆕 | `op`, `name`, `from?`/`value?`, ... | تبدیل داده (الیاس: `set-variable`, `transform`) — جدول `op` پایین |
+
+**عملیات `variable` (`op`):**
+| op | پارامترهای مرتبط | نتیجه |
+|----|------------------|-------|
+| `set` | `value` یا `from` | مقدار خام را در `name` می‌گذارد |
+| `regex` | `pattern`, `flags?` | با `g`: آرایه‌ی matchها؛ بدون `g`: اولین گروه‌۱ یا کل match (یا `null`) |
+| `replace` | `pattern`, `flags?` (پیش‌فرض `g`), `replacement` | جایگزینی regex |
+| `slice` | `start`, `end?` | برش رشته یا آرایه |
+| `split` | `separator` (پیش‌فرض `,`) | تبدیل رشته به آرایه |
+| `join` | `separator` (پیش‌فرض `,`) | تبدیل آرایه به رشته |
+| `sort` | `numeric?`, `desc?` | مرتب‌سازی آرایه (یا خطوط یک رشته) |
+
+> امنیت: طول `pattern` به ۱۰۰۰ و طول ورودی به ۱۰۰هزار کاراکتر محدود است و فقط فلگ‌های `g i m s u` پذیرفته می‌شوند (ضد ReDoS).
+
+### کوکی، کلیپ‌بورد و اعلان
+| action | پارامترها | توضیح |
+|--------|-----------|-------|
+| `cookie` 🆕 | `op` (`getAll`/`get`/`set`/`clear`), `name?`, `value?`, `domain?`, `expires?` | مدیریت کوکی‌های context (الیاس: `cookies`) |
+| `clipboard` | `action` (`get`/`set`/`copy`/`paste`), `text?`, `selector?` | کار با کلیپ‌بورد |
+| `notification` 🆕 | `title`, `message?`, `level?` (`info`/`success`/`warn`/`error`) | ثبت اعلان در لاگ و خروجی مرحله (الیاس: `notify`) |
+| `log` | `message` | نوشتن پیام در لاگ جاب |
+
+### مرورگر، تب و فریم
+| action | پارامترها | توضیح |
+|--------|-----------|-------|
+| `switch-frame` | `selector`/`index` | ورود به iframe (الیاس: `switch_frame`) |
+| `switch-tab` | `index` | تعویض تب فعال (الیاس: `switch_tab`) |
+| `close-tab` | — | بستن تب جاری (الیاس: `close_tab`) |
+| `close-browser` | — | بستن کامل مرورگر (الیاس: `close_browser`) |
+| `handle-dialog` | `action` (`accept`/`dismiss`), `text?` | پاسخ به dialog/alert (الیاس: `handle_dialog`) |
+| `http-request` | `url`, `method?`, `headers?`, `body?` | درخواست HTTP (الیاس: `http`, `fetch`, `api`) — محافظت SSRF |
+
+### کنترل جریان (Flow Engine)
+| action | ساختار | توضیح |
+|--------|--------|-------|
+| `if` | `condition`, `then[]`, `else?[]` | شرط |
+| `while` | `condition`, `steps[]` | حلقه‌ی شرطی |
+| `loop` | `count`/`steps[]` | حلقه‌ی شمارشی |
+| `foreach` | `items`, `steps[]` | پیمایش آرایه |
+| `switch` | `variable`, `cases{}` | چندشاخه |
+| `try` | `steps[]`, `catch?[]`, `finally?[]` | مدیریت خطا |
+| `break` / `continue` / `return` / `fail` | — | کنترل اجرا |
+
+> 🆕 = اکشن‌های افزوده‌شده در استپ ۱۱ (به‌سبک Automa). اکشن‌های جدید هم در فرم خطی و هم در ادیتور بصری از کاتالوگ مشترک `public/js/actions.js` در دسترس‌اند.
+
+---
+
 ### `POST /schedule`
 ثبت یک جاب زمان‌بندی‌شده‌ی تکرارشونده (cron) با BullMQ repeatable. _(auth: x-api-key)_
 

@@ -37,31 +37,14 @@
   // Action catalog for the flow builder.
   // Each action lists the param fields it needs.
   // ---------------------------------------------
-  var ACTIONS = [
-    { id: 'goto', fields: [{ k: 'url', label: 'p.url', type: 'text', ph: 'https://example.com' }] },
-    { id: 'wait', fields: [{ k: 'ms', label: 'p.ms', type: 'number', ph: '1000' }] },
-    { id: 'click', fields: [{ k: 'selector', label: 'p.selector', type: 'text', ph: 'button.submit' }] },
-    { id: 'fill', fields: [
-      { k: 'selector', label: 'p.selector', type: 'text', ph: 'input[name=q]' },
-      { k: 'text', label: 'p.text', type: 'text', ph: 'hello' },
-    ] },
-    { id: 'type', fields: [
-      { k: 'selector', label: 'p.selector', type: 'text', ph: 'input[name=q]' },
-      { k: 'text', label: 'p.text', type: 'text', ph: 'hello' },
-    ] },
-    { id: 'press', fields: [{ k: 'text', label: 'p.key', type: 'text', ph: 'Enter' }] },
-    { id: 'scroll', fields: [{ k: 'direction', label: 'p.direction', type: 'select', options: ['bottom', 'top'] }] },
-    { id: 'extract', fields: [
-      { k: 'selector', label: 'p.selector', type: 'text', ph: '.price' },
-      { k: 'name', label: 'p.name', type: 'text', ph: 'price' },
-    ] },
-    { id: 'screenshot', fields: [] },
-    { id: 'log', fields: [{ k: 'message', label: 'p.message', type: 'text', ph: 'checkpoint' }] },
-  ];
-  function actionById(id) {
-    for (var i = 0; i < ACTIONS.length; i++) if (ACTIONS[i].id === id) return ACTIONS[i];
-    return ACTIONS[0];
-  }
+  // Shared catalog (public/js/actions.js → window.ACTION_CATALOG).
+  // Falls back to a minimal inline list if the catalog failed to load.
+  var CAT = window.ACTION_CATALOG || {
+    ACTIONS: [{ id: 'goto', fields: [{ k: 'url', label: 'p.url', type: 'text', ph: 'https://example.com' }] }],
+    actionById: function (id) { return this.ACTIONS[0]; },
+  };
+  var ACTIONS = CAT.ACTIONS;
+  function actionById(id) { return CAT.actionById(id); }
 
   // =============================================
   // RUN / FLOW BUILDER

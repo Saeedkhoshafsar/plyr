@@ -353,13 +353,15 @@
   7. ✅ **تست e2e (Playwright):** login → editor → افزودن نود (goto+click، بدون overlap) → ویرایش param در inspector → اتصال start→goto→click (۲ لبه) → «نمایش JSON» = ۲ step `goto,click` → save/clear/load roundtrip (۳ نود) → **اجرا → جاب در صف (Job ID: 1)** → سویچ زبان/RTL. **بدون خطای console.** `tsc`/`npm run build`/`npm test` (۸۱) سبز.
   - فرم خطی استپ ۸ به‌عنوان حالت ساده/fallback باقی ماند؛ ادیتور نودی حالت پیشرفته است.
 
-- [ ] **استپ ۱۱ — افزایش بلوک‌ها/اکشن‌ها به‌سبک Automa (دسته E2/E3)**
-  1. افزودن اکشن Export داده (CSV/JSON) [E3]
-  2. افزودن Cookie get/set و Clipboard
-  3. افزودن Loop Elements / Loop Data و breakpoint
-  4. افزودن دستکاری متغیر: Regex / Slice / Sort
-  5. افزودن Notification و Dialog handler
-  6. مستندسازی همه‌ی اکشن‌ها در `docs/API.md`
+- [x] **استپ ۱۱ — افزایش بلوک‌ها/اکشن‌ها به‌سبک Automa (دسته E2/E3)** ✅ — 2026-06-04
+  1. ✅ افزودن اکشن `export-data` (CSV/JSON) [E3] — ذخیره در `downloads/<userId>/`؛ سریالایزر `toCsv`/`csvEscape` (union-header برای آرایه‌ی اشیاء، key/value برای شیء، تک‌ستونه برای آرایه‌ی اسکالر).
+  2. ✅ افزودن `cookie` (getAll/get/set/clear). `clipboard` از قبل در بک‌اند بود و حالا در UI هم نمایش داده می‌شود.
+  3. ⏭️ حلقه‌ها (`loop`/`foreach`/`while`) از قبل در Flow Engine بک‌اند بودند؛ نودهای کنترل‌جریان چندپورتی به استپ بعدی ادیتور موکول شد (نیاز به چند پورت خروجی — `toSteps()` فعلاً خطی است). breakpoint نیاز به live-channel دارد → استپ ۱۶.
+  4. ✅ افزودن `variable` (الیاس `set-variable`/`transform`) با `op`: `set`/`regex`/`replace`/`slice`/`split`/`join`/`sort` — regex امن (cap طول pattern=۱۰۰۰ و ورودی=۱۰۰k، فقط فلگ‌های `gimsu`؛ ضد ReDoS).
+  5. ✅ افزودن `notification` (title/message/level → لاگ + خروجی مرحله). `handle-dialog` از قبل در بک‌اند بود.
+  6. ✅ مستندسازی کامل همه‌ی اکشن‌ها (موجود+جدید) در `docs/API.md` (بخش «کاتالوگ اکشن‌ها»).
+  - ✅ **بازآرایی کلیدی:** کاتالوگ `ACTIONS` که قبلاً در `views.js` و `flow-editor.js` دو کپی بود، به یک ماژول مشترک `public/js/actions.js` (`window.ACTION_CATALOG`) منتقل شد. هر دو فایل حالا از همان منبع می‌خوانند (۱۸ اکشن). ترتیب لود: **actions** → i18n → api → flow-editor → views → app.
+  - ✅ **تست:** `npx tsc`/`npm run build` سبز؛ `npm test` = **۹۱ تست** (۸۱ قبلی + ۱۰ تست جدید `export-csv.test.ts` برای `toCsv`/`csvEscape`). e2e Playwright: لاگین → کاتالوگ مشترک با ۸ اکشن جدید → اشتراک FlowEditor↔فرم خطی → `POST /run` با اکشن‌های جدید (status 200، Job ID:1) → **بدون خطای console**. (اجرای واقعی pipeline در sandbox به‌دلیل نبود deps کامل مرورگر سروری ممکن نیست — تست end-to-end مرورگر روی ماشین کاربر/Docker.)
 
 - [ ] **استپ ۱۲ — Live Browser View + Element Picker (نکته ۱ صاحب پروژه — راهکار A) (دسته F1)** _(وابسته به استپ ۱۶)_
   1. راه‌اندازی WebSocket server امن (با auth) برای استریم مرورگر

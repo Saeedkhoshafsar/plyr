@@ -4,7 +4,7 @@
 
 - **Repo:** https://github.com/Saeedkhoshafsar/plyr  (branch: `main`)
 - **پروژه:** `automation-backend` — بک‌اند اتوماسیون مرورگر (Node.js + TypeScript)، رایگان/متن‌باز/**Self-Hosted**.
-- **آخرین به‌روزرسانی این سند:** 2026-06-04 — پس از پایان استپ ۸.
+- **آخرین به‌روزرسانی این سند:** 2026-06-04 — پس از پایان استپ ۱۱.
 
 ---
 
@@ -94,11 +94,11 @@ PY
 
 ## ۵) وضعیت فعلی (به‌روز در پایان هر استپ)
 
-**استپ‌های تمام‌شده:** ۱، ۲، ۳، ۴، ۵، ۵.۵، ۶، ۷، ۸، ۹، ۱۰ ✅
+**استپ‌های تمام‌شده:** ۱، ۲، ۳، ۴، ۵، ۵.۵، ۶، ۷، ۸، ۹، ۱۰، ۱۱ ✅
 
-**استپ بعدی برای شروع:** **استپ ۱۱ — افزایش بلوک‌ها/اکشن‌های جدید به‌سبک Automa (دسته E2/E3)** (اکشن‌های بیشتر در کاتالوگ `ACTIONS` — مثل condition/loop/keyboard/upload/select-option/get-attribute/wait-for-selector — هم در فرم خطی استپ ۸ و هم در نودهای ادیتور استپ ۱۰؛ و افزودن نودهای کنترل‌جریان (شاخه/حلقه) به ادیتور با چند پورت خروجی).
+**استپ بعدی برای شروع:** **استپ ۱۲ — Live Browser View + Element Picker (نکته ۱ صاحب پروژه — راهکار A) (دسته F1)** — _وابسته به استپ ۱۶ (کانال زنده‌ی WebSocket/SSE)._ راه‌اندازی WS امن برای استریم مرورگر، CDP Screencast روی canvas، ارسال کلیک/تایپ کاربر، Element Picker برای تولید سلکتور، و باز کردن `connect-src`/`ws` در CSP.
 
-> 🧭 **برای استپ ۱۱ آماده است:** ادیتور node-based (استپ ۱۰) و فرم خطی (استپ ۸) هر دو از **یک کاتالوگ `ACTIONS` مشترک از نظر مفهومی** استفاده می‌کنند — ولی **دو کپی جدا** دارند: یکی در `public/js/views.js` (فرم خطی) و یکی در `public/js/flow-editor.js` (نودها). برای استپ ۱۱ هر اکشن جدید را باید **در هر دو** اضافه کرد (یا کاتالوگ را به یک ماژول مشترک منتقل کرد — توصیه می‌شود). فرمت هر اکشن: `{ id, icon?, fields:[{k,label,type,ph?,options?}] }`؛ بک‌اند `{action, params}` می‌گیرد — مطمئن شو هر اکشن جدید در pipeline اجرای بک‌اند (`src/`) هم پشتیبانی می‌شود وگرنه فقط UI است. نودهای کنترل‌جریان نیاز به چند پورت خروجی دارند (ادیتور فعلاً تک‌پورت/زنجیره‌ای است؛ `toSteps()` خطی است). همه‌ی `public/**` و `tests/**` و `*.config.ts` **LF**؛ `src/**/*.ts` و `package.json` **CRLF**.
+> 🧭 **نکته‌ی مهم برای استپ‌های بعدی (کاتالوگ اکشن مشترک):** از استپ ۱۱، کاتالوگ `ACTIONS` دیگر دو کپی نیست؛ به **یک ماژول مشترک** منتقل شد: `public/js/actions.js` → `window.ACTION_CATALOG = { ACTIONS, actionById, ids }`. هم `views.js` (فرم خطی) و هم `flow-editor.js` (نودها) از همان می‌خوانند (flow-editor یک `actionById` محلی دارد که برای نودهای مصنوعی مثل `__start__` مقدار `null` برمی‌گرداند). برای افزودن اکشن جدید: فقط در `actions.js` اضافه کن + پیاده‌سازی بک‌اند در `src/pipeline.ts` (قبل از بخش «43. EXTERNAL MODULE») + کلیدهای i18n `p.*` (fa+en). فرمت اکشن: `{ id, icon?, fields:[{k,label,type,ph?,options?}] }`؛ بک‌اند `{action, params}` می‌گیرد. ⚠️ نودهای کنترل‌جریان چندپورتی هنوز ساخته نشده‌اند (`toSteps()` خطی است) — کار آینده‌ی ادیتور. ترتیب لود اسکریپت: **actions** → i18n → api → flow-editor → views → app. همه‌ی `public/**` و `tests/**` و `*.config.ts` **LF**؛ `src/**/*.ts` و `package.json` **CRLF**.
 
 **خلاصه‌ی کارهای انجام‌شده‌ی کلیدی:**
 - استپ ۲: ۹ خطای TS رفع شد (import casing، UPLOADS/DOWNLOADS_DIR، redis param، ES2021+DOM lib، new Date guard، implicit any).
@@ -111,6 +111,7 @@ PY
 - استپ ۸: UI بخش ۲ — `public/js/views.js` (`window.Views`): flow builder (`ACTIONS` catalog) → `POST /run`، صفحه‌ی jobs + job detail (poll)، Quota، Schedules (list/delete)، پنل admin (`x-admin-token` → `/admin/stats`). **باگ lazy `AppUtil`:** `views.js` قبل از `app.js` لود می‌شود پس `U()` به صورت lazy resolve شد. e2e Playwright بدون خطای console PASS.
 - استپ ۹: **تست و پایدارسازی (D3)** — `vitest`+`supertest`؛ `tests/unit/` (helpers ۱۴، validation ۲۲ شامل SSRF، condition-engine ۱۹ شامل regex امن، schemas ۱۲) + `tests/integration/api.test.ts` (۱۴) روی اپ Express سبک با میدل‌ورهای واقعی auth/admin بدون Redis. اسکریپت‌های `test`/`test:watch`/`check`. **`npm test` → ۸۱ تست سبز**، `npm run check` سبز. عمداً `src/index.ts` import نشد (side-effect `startServer()`).
 - استپ ۱۰: **ادیتور Flow بصری node-based (الهام از Automa)** — `public/js/flow-editor.js` (`window.FlowEditor`): بوم SVG + کارت‌های HTML، drag نودها، اتصال پورت out→in، pan/zoom، حذف نود/لبه، inspector params، save/load/clear در localStorage، اجرای مستقیم `POST /run`، تبدیل دوطرفه گراف↔`steps[]`. ادغام: nav/route `editor`، اسکریپت در index.html (i18n→api→flow-editor→views→app)، کلیدهای `fe.*` (fa+en)، CSS. e2e Playwright: add→connect(start→goto→click)→JSON(۲ step)→save/load→**run(Job ID:1)**؛ بدون خطای console.
+- استپ ۱۱: **افزایش اکشن‌ها به‌سبک Automa (E2/E3)** — کشف کلیدی: بک‌اند `src/pipeline.ts` از قبل **۴۰+ اکشن** داشت ولی UI فقط ۱۰ تا را نشان می‌داد. (الف) کاتالوگ مشترک `public/js/actions.js` (`window.ACTION_CATALOG`، ۱۸ اکشن) ساخته شد و `views.js`+`flow-editor.js` به آن متصل شدند (پایان دو کپی). (ب) چهار اکشن جدید به بک‌اند اضافه شد: `cookie` (getAll/get/set/clear)، `variable`/`set-variable` (op: set/regex/replace/slice/split/join/sort — regex امن ضد ReDoS)، `export-data` (csv/json → `downloads/<userId>/`، helperهای `toCsv`/`csvEscape`)، `notification`. (ج) کلیدهای i18n `p.*` جدید (fa+en)، `actions.js` اول در index.html لود می‌شود. (د) `docs/API.md` بخش کامل «کاتالوگ اکشن‌ها». **تست:** `tsc`/`build` سبز، `npm test`=**۹۱** (+۱۰ تست `export-csv.test.ts`؛ `toCsv`/`csvEscape` با `export function` قابل‌تست شدند). e2e Playwright: کاتالوگ مشترک + ۸ اکشن جدید + `POST /run`(200, Job ID:1)، بدون خطای console. اجرای واقعی pipeline در sandbox به‌دلیل نبود deps مرورگر سروری شکست می‌خورد (`GlobalBrowser unavailable`) — محدودیت محیطی، نه باگ کد.
 
 **باگ‌های ثبت‌شده که هنوز باز/بعداً:** بخش «دسته‌ها» در `PLAN.md` را ببین. (دسته‌های D–H در استپ‌های ۷+ پوشش داده می‌شوند.)
 

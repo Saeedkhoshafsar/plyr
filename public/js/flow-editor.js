@@ -29,27 +29,12 @@
   // Each action defines its editable params (fields). `branches` lists the
   // output ports of a node; default is a single 'next' port. Condition/loop
   // style actions can declare multiple branches for richer control later.
-  var ACTIONS = [
-    { id: 'goto', icon: '🌐', fields: [{ k: 'url', label: 'p.url', type: 'text', ph: 'https://example.com' }] },
-    { id: 'wait', icon: '⏳', fields: [{ k: 'ms', label: 'p.ms', type: 'number', ph: '1000' }] },
-    { id: 'click', icon: '🖱️', fields: [{ k: 'selector', label: 'p.selector', type: 'text', ph: 'button.submit' }] },
-    { id: 'fill', icon: '✏️', fields: [
-      { k: 'selector', label: 'p.selector', type: 'text', ph: 'input[name=q]' },
-      { k: 'text', label: 'p.text', type: 'text', ph: 'hello' },
-    ] },
-    { id: 'type', icon: '⌨️', fields: [
-      { k: 'selector', label: 'p.selector', type: 'text', ph: 'input[name=q]' },
-      { k: 'text', label: 'p.text', type: 'text', ph: 'hello' },
-    ] },
-    { id: 'press', icon: '↩️', fields: [{ k: 'text', label: 'p.key', type: 'text', ph: 'Enter' }] },
-    { id: 'scroll', icon: '🧭', fields: [{ k: 'direction', label: 'p.direction', type: 'select', options: ['bottom', 'top'] }] },
-    { id: 'extract', icon: '📤', fields: [
-      { k: 'selector', label: 'p.selector', type: 'text', ph: '.price' },
-      { k: 'name', label: 'p.name', type: 'text', ph: 'price' },
-    ] },
-    { id: 'screenshot', icon: '📸', fields: [] },
-    { id: 'log', icon: '📝', fields: [{ k: 'message', label: 'p.message', type: 'text', ph: 'checkpoint' }] },
-  ];
+  // Shared catalog (public/js/actions.js → window.ACTION_CATALOG).
+  var CAT = window.ACTION_CATALOG || { ACTIONS: [] };
+  var ACTIONS = CAT.ACTIONS;
+  // Note: unlike the shared helper (which falls back to ACTIONS[0]), the editor
+  // needs a strict lookup that returns null for unknown/synthetic node types
+  // (e.g. '__start__'). Callers already guard on a null result.
   function actionById(id) {
     for (var i = 0; i < ACTIONS.length; i++) if (ACTIONS[i].id === id) return ACTIONS[i];
     return null;
