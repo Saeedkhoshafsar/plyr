@@ -27,9 +27,13 @@ import { asyncBlockCheck } from './middleware/block-check';
 
 // Utils & Services
 import { isVipUser } from './utils/helpers';
-import { STATS_KEY, getUserActiveJobsKey } from './utils/redis-keys';
+import { STATS_KEY, getUserActiveJobsKey, getLiveChannel } from './utils/redis-keys';
 import { sendWebhook } from './services/webhook.service';
 import { persistJob } from './services/job.service';
+
+// Step 16: Live Channel (WebSocket + SSE) live job events.
+import { LiveBus, JobLivePublisher } from './core/LiveBus';
+import { LiveServer, authorizeLive } from './core/LiveServer';
 
 // Routes
 import { createAllRoutes } from './Routes';
@@ -48,7 +52,7 @@ app.use(helmet({
       scriptSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", "data:"],
-      connectSrc: ["'self'"],
+      connectSrc: ["'self'", "ws:", "wss:"],  // Step 16: live channel (WebSocket) + same-origin SSE
       fontSrc: ["'self'"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
@@ -112,6 +116,12 @@ const queue = new Queue('automation-jobs', { connection });
 const profileManager = new ProfileManager();
 const quotaManager = new QuotaManager(connection);
 const apiKeyManager = initApiKeyManager(connection);
+
+// Step 16: live event bus (publishes to Redis Pub/Sub + replay buffer).
+const liveBus = new LiveBus(connection);
+// LiveServer (WebSocket fan-out) is created lazily in startServer once the
+// HTTP server exists, so it can attach to the 'upgrade' event.
+let liveServer: LiveServer | null = null;
 
 // ============================================
 // LUA SCRIPTS
@@ -260,6 +270,66 @@ app.use('/', routes.user);
 app.use('/admin', routes.admin);
 
 // ============================================
+// LIVE CHANNEL - SSE fallback (Step 16)
+// ============================================
+// GET /live/sse/:userId/:jobId?api_key=...  -> text/event-stream
+// Replays the recent buffer, then streams new events via Redis Pub/Sub.
+// WebSocket (/live/ws) is preferred; this is the fallback for environments
+// where WS is blocked (e.g. some corporate proxies).
+app.get('/live/sse/:userId/:jobId', async (req, res) => {
+  const userId = String(req.params.userId);
+  const jobId = String(req.params.jobId);
+  const apiKey = (req.headers['x-api-key'] as string | undefined)
+    || (req.query.api_key ? String(req.query.api_key) : undefined);
+
+  const auth = await authorizeLive(apiKey, userId);
+  if (!auth.ok) {
+    res.status(auth.reason === 'missing_api_key' ? 401 : 403).json({
+      success: false,
+      error: 'Live access denied',
+      reason: auth.reason
+    });
+    return;
+  }
+
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache, no-transform',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no'
+  });
+  res.write(': connected\n\n');
+
+  const channel = getLiveChannel(userId, jobId);
+  // Dedicated subscriber connection for this SSE client.
+  const sub = connection.duplicate();
+
+  const sendEvent = (payload: string) => {
+    try { res.write(`data: ${payload}\n\n`); } catch { /* client gone */ }
+  };
+
+  // Replay recent buffer first.
+  try {
+    const buffer = await liveBus.getBuffer(userId, jobId);
+    for (const ev of buffer) sendEvent(JSON.stringify(ev));
+  } catch { /* best-effort */ }
+
+  sub.on('message', (_chan: string, message: string) => sendEvent(message));
+  sub.subscribe(channel).catch(() => { /* best-effort */ });
+
+  // Heartbeat comment every 25s to keep proxies from closing the stream.
+  const hb = setInterval(() => { try { res.write(': ping\n\n'); } catch { /* ignore */ } }, 25000);
+
+  const cleanup = () => {
+    clearInterval(hb);
+    sub.unsubscribe(channel).catch(() => {});
+    sub.quit().catch(() => {});
+  };
+  req.on('close', cleanup);
+  res.on('close', cleanup);
+});
+
+// ============================================
 // WORKER
 // ============================================
 
@@ -329,11 +399,17 @@ const worker = new Worker('automation-jobs', async (job: Job) => {
 
   profileManager.initJobOutputs(job.id!);
 
+  // Step 16: per-job live publisher (best-effort fan-out to subscribers).
+  const livePub = new JobLivePublisher(liveBus, userId, job.id!);
+
   const log = (msg: string) => {
-    console.log(`[JOB:${job.id}] ${sanitizeLogMessage(msg)}`);
+    const safe = sanitizeLogMessage(msg);
+    console.log(`[JOB:${job.id}] ${safe}`);
+    livePub.emit('log', { message: safe });
   };
 
   try {
+    livePub.emit('job.start', { isVip, lock: shouldLock });
     log(`Started (${isVip ? 'VIP' : 'Free'}) [Lock: ${shouldLock}]`);
 
     connection.incr(STATS_KEY.TOTAL_JOBS).catch(() => {});
@@ -369,9 +445,14 @@ const worker = new Worker('automation-jobs', async (job: Job) => {
         }
       },
       userPlan,
-      quotaManager
+      quotaManager,
+      // Step 16: forward step-level live events from the pipeline.
+      onEvent: (type: string, data?: Record<string, unknown>) => {
+        livePub.emit(type as Parameters<typeof livePub.emit>[0], data);
+      }
     });
 
+    livePub.emit('job.done', { durationMs: result.durationMs });
     log('Completed');
     connection.incr(STATS_KEY.TOTAL_SUCCESS).catch(() => {});
 
@@ -405,6 +486,7 @@ const worker = new Worker('automation-jobs', async (job: Job) => {
     }
 
     if (cancelled || error.message === 'CANCELLED_BY_USER' || error.message === 'QUOTA_EXHAUSTED') {
+      livePub.emit('job.error', { reason: error.message === 'QUOTA_EXHAUSTED' ? 'quota_exhausted' : 'cancelled', message: error.message });
       log(error.message === 'QUOTA_EXHAUSTED' ? 'Quota Exhausted' : 'Cancelled');
 
       await persistJob(userId, job.id!, outputs, {
@@ -447,6 +529,7 @@ const worker = new Worker('automation-jobs', async (job: Job) => {
       }
     }
 
+    livePub.emit('job.error', { message: sanitizeLogMessage(error.message) });
     log(`Failed: ${sanitizeLogMessage(error.message)}`);
 
     await persistJob(userId, job.id!, outputs, {
@@ -543,6 +626,11 @@ const shutdown = async (signal: string) => {
   console.log(`\n[SHUTDOWN] ${signal} received, starting graceful shutdown...`);
 
   try {
+    if (liveServer) {
+      console.log('[SHUTDOWN] Closing live server...');
+      await liveServer.shutdown();
+    }
+
     console.log('[SHUTDOWN] Closing worker...');
     await worker.close();
 
@@ -625,9 +713,14 @@ const startServer = async () => {
     process.exit(1);
   });
 
+  // Step 16: attach the WebSocket live server to this HTTP server.
+  liveServer = new LiveServer(liveBus, connection);
+  liveServer.attach(server);
+  console.log('[LIVE] WebSocket live channel ready at /live/ws (SSE fallback at /live/sse/:userId/:jobId)');
+
   return server;
 };
 
 const server = startServer();
 
-export { app, server, queue, connection, profileManager, quotaManager };
+export { app, server, queue, connection, profileManager, quotaManager, liveBus };

@@ -74,6 +74,8 @@ export interface AutomationContext {
   userId: string;
   profileManager: ProfileManager;
   log: (msg: string) => void;
+  // Step 16: optional live event hook (step.start/step.done/step.error).
+  onEvent?: (type: string, data?: Record<string, unknown>) => void;
   jobId: string;
   job?: Job;
   getModule: (name: string) => unknown;

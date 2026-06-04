@@ -392,13 +392,14 @@
   4. Credentials = API Key + Base URL
   5. مستند نصب در n8n + نمونه‌ی workflow
 
-- [ ] **استپ ۱۶ — کانال زنده‌ی استاندارد (Live Channel) — قلب «مسیر زنده» (دسته G1)**
-  1. تعریف رویدادهای استاندارد: `log`, `step.start`, `step.done`, `step.error`, `job.done`
-  2. انتشار رویدادها از داخل pipeline حین اجرای هر step (event emitter)
-  3. کانال تحویل: WebSocket (`ws` موجود) + fallback به SSE برای کلاینت‌های ساده
-  4. احراز هویت کانال با API Key + محدودسازی به owner همان job
-  5. بافر کوتاه رویدادها در Redis تا کلاینت دیرتر هم بتواند آخرین وضعیت را بگیرد
-  6. تست: subscribe از UI و دیدن لاگ زنده‌ی یک job نمونه
+- [x] **استپ ۱۶ — کانال زنده‌ی استاندارد (Live Channel) — قلب «مسیر زنده» (دسته G1)** _(۲۰۲۶-۰۶-۰۴)_
+  1. تعریف رویدادهای استاندارد: `job.start`, `log`, `step.start`, `step.done`, `step.error`, `job.done`, `job.error` (در `src/core/LiveBus.ts`)
+  2. انتشار رویدادها از داخل pipeline حین اجرای هر step (`onEvent` در `AutomationContext` → emit در `executeStepGroup`؛ worker رویدادهای job-level و log را emit می‌کند)
+  3. کانال تحویل: WebSocket (`/live/ws` در `src/core/LiveServer.ts`) + fallback به SSE (`GET /live/sse/:userId/:jobId`)
+  4. احراز هویت کانال با API Key (query یا header) + محدودسازی به owner همان job (`authorizeLive`)
+  5. بافر کوتاه رویدادها در Redis (capped list ۲۰۰ تایی، TTL ۳۰ دقیقه) + Pub/Sub برای fan-out سازگار با PM2 cluster
+  6. تست: ۷ تست جدید (LiveBus integration + authorizeLive) + e2e واقعی (WS replay buffer + live stream + رد کلید نامعتبر) — همه سبز
+  7. UI: ویوی «نمایش زنده» (`public/js/live.js`، `window.LiveClient`+`LiveView`) + کلیدهای i18n `live.*` + آیتم nav
 
 - [ ] **استپ ۱۷ — Workflow Storage (ذخیره/بازاجرا/مدیریت workflow) (دسته G2)**
   1. مدل ذخیره‌سازی workflow در Redis (id, userId, name, steps, نسخه, زمان)

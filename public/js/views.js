@@ -21,6 +21,10 @@
     if (window.FlowEditor && typeof window.FlowEditor.unmount === 'function') {
       try { window.FlowEditor.unmount(); } catch (e) { /* noop */ }
     }
+    // close any active live (WebSocket/SSE) connection when leaving the view
+    if (window.LiveView && typeof window.LiveView.stop === 'function') {
+      try { window.LiveView.stop(); } catch (e) { /* noop */ }
+    }
   }
 
   function t(k) { return U().t(k); }
@@ -729,6 +733,12 @@
       case 'run': return renderRun(root);
       case 'editor': return renderEditor(root);
       case 'jobs': return renderJobs(root);
+      case 'live':
+        if (window.LiveView && typeof window.LiveView.render === 'function') {
+          return window.LiveView.render(root);
+        }
+        root.innerHTML = '<div class="placeholder">🚧 ' + t('common.comingSoon') + '</div>';
+        return;
       case 'quota': return renderQuota(root);
       case 'schedules': return renderSchedules(root);
       case 'admin': return renderAdmin(root);

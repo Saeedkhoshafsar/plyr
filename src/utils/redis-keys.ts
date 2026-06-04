@@ -12,6 +12,15 @@ export const getUserActiveJobsKey = (userId: string): string =>
 export const getUserLockKey = (userId: string): string =>
   `user:lock:${userId}`;
 
+// === LIVE CHANNEL (Step 16) ===
+// Pub/Sub channel name for a job's live events.
+export const getLiveChannel = (userId: string, jobId: string): string =>
+  `live:ch:${userId}:${jobId}`;
+
+// Short replay buffer (Redis list) so a late subscriber can fetch recent events.
+export const getLiveBufferKey = (userId: string, jobId: string): string =>
+  `live:buf:${userId}:${jobId}`;
+
 // [C6] Non-blocking replacement for KEYS. Iterates with SCAN so it never blocks
 // the Redis event loop (KEYS is O(N) over the whole keyspace).
 export const scanKeys = async (

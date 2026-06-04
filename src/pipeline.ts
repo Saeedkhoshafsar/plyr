@@ -670,6 +670,7 @@ export async function runPipeline(params: {
   profileManager: ProfileManager;
   userPlan: PlanConfig;
   quotaManager: QuotaManager;
+  onEvent?: (type: string, data?: Record<string, unknown>) => void;
 }): Promise<JobResult> {
   const {
     userId,
@@ -681,7 +682,8 @@ export async function runPipeline(params: {
     isCancelled,
     profileManager,
     userPlan,
-    quotaManager
+    quotaManager,
+    onEvent
   } = params;
 
   if (isCancelled && await isCancelled()) {
@@ -706,7 +708,8 @@ export async function runPipeline(params: {
     userPlan,
     variables: new Map<string, any>(),
     globalLoopCounter: 0,
-    quotaManager
+    quotaManager,
+    onEvent
   };
 
   let globalStepNumber = 0;
@@ -783,6 +786,9 @@ export async function runPipeline(params: {
     for (let i = 0; i < stepsToRun.length; i++) {
       const step = stepsToRun[i];
       const stepStartTime = Date.now();
+      // Step 16: live event - announce this step starting.
+      const __outLenBefore = stepOutputs.length;
+      context.onEvent?.('step.start', { index: globalStepNumber + 1, action: step.action });
 
       context.globalLoopCounter++;
 
@@ -2548,7 +2554,14 @@ export async function runPipeline(params: {
           stepStartTime,
           stepError.message
         ));
+        context.onEvent?.('step.error', { index: globalStepNumber, action: step.action, error: String(stepError.message || stepError) });
         throw stepError;
+      }
+
+      // Step 16: live event - announce step completion (best-effort).
+      if (stepOutputs.length > __outLenBefore) {
+        const __last = stepOutputs[stepOutputs.length - 1];
+        context.onEvent?.('step.done', { index: __last.step, action: __last.action, success: __last.success, durationMs: __last.durationMs });
       }
     }
   };
