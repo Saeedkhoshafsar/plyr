@@ -6,6 +6,11 @@ import {
   isValidIdempotencyKey,
   getLiveChannel,
   getLiveBufferKey,
+  getWorkflowKey,
+  getUserWorkflowsKey,
+  getWorkflowVersionKey,
+  getWorkflowVersionIndexKey,
+  isValidWorkflowId,
 } from '../../src/utils/redis-keys';
 
 describe('redis key builders', () => {
@@ -36,5 +41,33 @@ describe('isValidIdempotencyKey', () => {
     expect(isValidIdempotencyKey('new\nline')).toBe(false);
     expect(isValidIdempotencyKey('emoji😀')).toBe(false);
     expect(isValidIdempotencyKey('slash/x')).toBe(false);
+  });
+});
+
+describe('workflow key builders (G2)', () => {
+  it('builds per-user-scoped workflow keys', () => {
+    expect(getWorkflowKey('u1', 'wf_abc')).toBe('wf:meta:u1:wf_abc');
+    expect(getUserWorkflowsKey('u1')).toBe('wf:index:u1');
+    expect(getWorkflowVersionKey('u1', 'wf_abc', 3)).toBe('wf:ver:u1:wf_abc:3');
+    expect(getWorkflowVersionIndexKey('u1', 'wf_abc')).toBe('wf:verindex:u1:wf_abc');
+  });
+
+  it('scopes workflow keys so different users cannot collide', () => {
+    expect(getWorkflowKey('u1', 'wf_x')).not.toBe(getWorkflowKey('u2', 'wf_x'));
+  });
+});
+
+describe('isValidWorkflowId', () => {
+  it('accepts server-style ids', () => {
+    expect(isValidWorkflowId('wf_0123abcd4567ef89')).toBe(true);
+    expect(isValidWorkflowId('my-workflow_1')).toBe(true);
+  });
+
+  it('rejects empty, oversized, or unsafe ids', () => {
+    expect(isValidWorkflowId('')).toBe(false);
+    expect(isValidWorkflowId('a'.repeat(65))).toBe(false);
+    expect(isValidWorkflowId('has space')).toBe(false);
+    expect(isValidWorkflowId('colon:bad')).toBe(false);
+    expect(isValidWorkflowId('slash/x')).toBe(false);
   });
 });

@@ -50,3 +50,34 @@ export const scanKeys = async (
   } while (cursor !== '0');
   return found;
 };
+
+// === WORKFLOW STORAGE (Step 17, category G2) ===
+// A saved workflow is a reusable, versioned bundle of steps owned by a user.
+// Storage layout (all per-user scoped so ids from different users never clash):
+//   wf:meta:<userId>:<workflowId>          -> JSON of the current Workflow record
+//   wf:index:<userId>                       -> SET of that user's workflow ids
+//   wf:ver:<userId>:<workflowId>:<version>  -> JSON snapshot of a past version
+//   wf:verindex:<userId>:<workflowId>       -> SET of version numbers kept in history
+
+export const getWorkflowKey = (userId: string, workflowId: string): string =>
+  `wf:meta:${userId}:${workflowId}`;
+
+export const getUserWorkflowsKey = (userId: string): string =>
+  `wf:index:${userId}`;
+
+export const getWorkflowVersionKey = (
+  userId: string,
+  workflowId: string,
+  version: number
+): string => `wf:ver:${userId}:${workflowId}:${version}`;
+
+export const getWorkflowVersionIndexKey = (
+  userId: string,
+  workflowId: string
+): string => `wf:verindex:${userId}:${workflowId}`;
+
+// Workflow ids are server-generated, but we validate any externally-supplied id
+// (e.g. on GET/PUT/DELETE) before embedding it in a Redis key.
+const WORKFLOW_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+export const isValidWorkflowId = (id: string): boolean =>
+  WORKFLOW_ID_RE.test(id);

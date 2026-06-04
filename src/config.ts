@@ -199,6 +199,13 @@ export const config = {
   IDEMPOTENCY_TTL_SECONDS: parseInt(cleanEnv(process.env.IDEMPOTENCY_TTL_SECONDS) || '86400', 10),
 
   // ============================================
+  // Workflow Storage (G2, Step 17)
+  // ============================================
+  // How many past versions to keep per workflow. Oldest snapshots beyond this
+  // are pruned on each update. 0 disables history pruning (keep everything).
+  WORKFLOW_MAX_VERSIONS: parseInt(cleanEnv(process.env.WORKFLOW_MAX_VERSIONS) || '20', 10),
+
+  // ============================================
   // Security
   // ============================================
   MAX_TOTAL_EXECUTION_OPS: parseInt(cleanEnv(process.env.MAX_TOTAL_EXECUTION_OPS) || '5000', 10),

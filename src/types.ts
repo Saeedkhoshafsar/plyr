@@ -273,3 +273,32 @@ export interface JobDetailResponse {
   message?: string;
   userId?: string;
 }
+
+// ============================================
+// Workflow Storage (Step 17, category G2)
+// A reusable, versioned, user-owned bundle of automation steps that can be
+// saved, listed, edited, re-run and version-tracked from any client.
+// ============================================
+export interface Workflow {
+  id: string;
+  userId: string;
+  name: string;
+  description?: string;
+  steps: unknown[];
+  headless?: boolean | string | number | null;
+  webhookUrl?: string | null;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// A point-in-time snapshot kept in the version history of a workflow.
+export interface WorkflowVersionSnapshot {
+  version: number;
+  name: string;
+  description?: string;
+  steps: unknown[];
+  headless?: boolean | string | number | null;
+  webhookUrl?: string | null;
+  savedAt: string;
+}

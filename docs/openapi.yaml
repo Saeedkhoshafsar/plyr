@@ -43,6 +43,8 @@ tags:
     description: Recurring (cron) jobs
   - name: Quota
     description: Usage and plan limits
+  - name: Workflows
+    description: Saved, versioned, re-runnable workflows (G2)
 
 security:
   - ApiKeyAuth: []
@@ -299,6 +301,179 @@ paths:
               schema: { $ref: '#/components/schemas/JobResult' }
         '404': { description: Job not found. }
 
+  /workflows/{userId}:
+    post:
+      tags: [Workflows]
+      summary: Create a saved workflow (G2)
+      description: >
+        Persist a reusable, versioned bundle of steps owned by the user. The new
+        workflow starts at version 1. `userId` comes from the path (auth-bound).
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WorkflowBody' }
+      responses:
+        '201':
+          description: Workflow created.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  workflow: { $ref: '#/components/schemas/Workflow' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+    get:
+      tags: [Workflows]
+      summary: List the user's saved workflows
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: Workflows owned by the user (newest updated first).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  count: { type: integer }
+                  workflows:
+                    type: array
+                    items: { $ref: '#/components/schemas/Workflow' }
+
+  /workflows/{userId}/{workflowId}:
+    get:
+      tags: [Workflows]
+      summary: Fetch one saved workflow
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - $ref: '#/components/parameters/WorkflowId'
+      responses:
+        '200':
+          description: The workflow.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  workflow: { $ref: '#/components/schemas/Workflow' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { description: Workflow not found. }
+    put:
+      tags: [Workflows]
+      summary: Update a workflow (bumps version + snapshots history)
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - $ref: '#/components/parameters/WorkflowId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WorkflowBody' }
+      responses:
+        '200':
+          description: Updated workflow (version incremented).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  workflow: { $ref: '#/components/schemas/Workflow' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { description: Workflow not found. }
+    delete:
+      tags: [Workflows]
+      summary: Delete a workflow and its version history
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - $ref: '#/components/parameters/WorkflowId'
+      responses:
+        '200':
+          description: Deleted.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  deleted: { type: boolean, example: true }
+                  workflowId: { type: string }
+        '404': { description: Workflow not found. }
+
+  /workflows/{userId}/{workflowId}/versions:
+    get:
+      tags: [Workflows]
+      summary: List a workflow's version history (newest first)
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - $ref: '#/components/parameters/WorkflowId'
+      responses:
+        '200':
+          description: Version snapshots.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  workflowId: { type: string }
+                  count: { type: integer }
+                  versions:
+                    type: array
+                    items: { $ref: '#/components/schemas/WorkflowVersion' }
+        '404': { description: Workflow not found. }
+
+  /workflows/{userId}/{workflowId}/run:
+    post:
+      tags: [Workflows]
+      summary: Run a saved workflow
+      description: >
+        Enqueue a job from a stored workflow. Honours the same `?wait=true`
+        (synchronous) and `Idempotency-Key` contract as `POST /run`. The optional
+        body may override `headless` / `webhookUrl` for this run only.
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - $ref: '#/components/parameters/WorkflowId'
+        - in: query
+          name: wait
+          schema: { type: boolean }
+          description: Block until the job finishes (bounded by RUN_WAIT_MAX_MS).
+        - in: header
+          name: Idempotency-Key
+          schema: { type: string }
+          description: Dedupe retries; the same key returns the original job.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                headless:
+                  oneOf: [ { type: boolean }, { type: string }, { type: integer } ]
+                webhookUrl: { type: string, format: uri, nullable: true }
+      responses:
+        '200':
+          description: Job queued (async) or full result (wait=true completed) or idempotent hit.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/RunAccepted'
+                  - $ref: '#/components/schemas/JobResult'
+                  - $ref: '#/components/schemas/IdempotentHit'
+        '202':
+          description: wait=true timed out; job still running. Poll via pollUrl.
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { description: Workflow not found. }
+        '429': { description: Quota or queue limit reached. }
+
 components:
   securitySchemes:
     ApiKeyAuth:
@@ -321,6 +496,11 @@ components:
       name: jobId
       required: true
       schema: { type: string }
+    WorkflowId:
+      in: path
+      name: workflowId
+      required: true
+      schema: { type: string, pattern: '^[A-Za-z0-9_-]{1,64}$' }
 
   schemas:
     Step:
@@ -427,6 +607,66 @@ components:
         nextRun: { type: string }
         createdAt: { type: string, nullable: true }
         timezone: { type: string }
+
+    WorkflowBody:
+      type: object
+      description: Create/update envelope for a saved workflow (userId comes from the path).
+      required: [name, steps]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+          example: Daily price scrape
+        description:
+          type: string
+          maxLength: 2000
+          nullable: true
+        steps:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/Step' }
+        headless:
+          oneOf: [ { type: boolean }, { type: string }, { type: integer } ]
+        webhookUrl:
+          type: string
+          format: uri
+          nullable: true
+
+    Workflow:
+      type: object
+      description: A stored, versioned, user-owned workflow record.
+      properties:
+        id: { type: string, example: wf_0123abcd4567ef89 }
+        userId: { type: string }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        steps:
+          type: array
+          items: { $ref: '#/components/schemas/Step' }
+        headless:
+          oneOf: [ { type: boolean }, { type: string }, { type: integer } ]
+          nullable: true
+        webhookUrl: { type: string, format: uri, nullable: true }
+        version: { type: integer, example: 1 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    WorkflowVersion:
+      type: object
+      description: A point-in-time snapshot kept in a workflow's history.
+      properties:
+        version: { type: integer }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        steps:
+          type: array
+          items: { $ref: '#/components/schemas/Step' }
+        headless:
+          oneOf: [ { type: boolean }, { type: string }, { type: integer } ]
+          nullable: true
+        webhookUrl: { type: string, format: uri, nullable: true }
+        savedAt: { type: string, format: date-time }
 
     Error:
       type: object

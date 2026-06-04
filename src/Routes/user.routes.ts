@@ -12,10 +12,11 @@ import {
   validateWebhookUrl,
   validateHeadless
 } from '../validation';
-import { runBodySchema, scheduleBodySchema, parseBody } from '../schemas';
+import { runBodySchema, scheduleBodySchema, workflowBodySchema, parseBody } from '../schemas';
 import { isVipUser } from '../utils/helpers';
-import { getUserActiveJobsKey, getIdempotencyKey, isValidIdempotencyKey } from '../utils/redis-keys';
+import { getUserActiveJobsKey, getIdempotencyKey, isValidIdempotencyKey, isValidWorkflowId } from '../utils/redis-keys';
 import { readJobFile, readPartialJobFile } from '../services/job.service';
+import { WorkflowService } from '../services/workflow.service';
 import type { AuthenticatedRequest } from '../middleware/auth';
 
 interface UserRoutesDeps {
@@ -65,6 +66,7 @@ const waitForJobResult = async (
 export const createUserRoutes = (deps: UserRoutesDeps): Router => {
   const router = Router();
   const { queue, connection, profileManager, quotaManager } = deps;
+  const workflowService = new WorkflowService(connection);
 
   // ══════════════════════
   // GET /me - identity probe for the UI login flow.
@@ -710,5 +712,271 @@ export const createUserRoutes = (deps: UserRoutesDeps): Router => {
     }
   });
 
+
+  // ══════════════════════════════════════════════════════════
+  // WORKFLOW STORAGE (Step 17, category G2)
+  // Saved, versioned, re-runnable workflows. Ownership is enforced by the auth
+  // middleware via the :userId path param (strict API-key binding), so every
+  // workflow is scoped to its owner. The n8n node, the Chrome extension and the
+  // UI all read/write through these same endpoints.
+  // ══════════════════════════════════════════════════════════
+
+  // POST /workflows/:userId — create a new saved workflow (version 1).
+  router.post('/workflows/:userId', async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = sanitizeUserId(req.params.userId);
+      const body = parseBody(workflowBodySchema, req.body, res);
+      if (!body) return;
+
+      // Deep-validate the step tree against the user's plan (same pass as /run).
+      const plan = await UserManager.getUserPlan(connection, userId);
+      const steps = validateSteps(body.steps, plan);
+      const webhookUrl = validateWebhookUrl(body.webhookUrl);
+
+      const wf = await workflowService.create(userId, {
+        name: body.name,
+        description: body.description ?? null,
+        steps,
+        headless: body.headless ?? null,
+        webhookUrl,
+      });
+      return res.status(201).json({ success: true, workflow: wf });
+    } catch (e: unknown) {
+      const error = e as Error;
+      res.status(400).json({ success: false, error: error.message });
+    }
+  });
+
+  // GET /workflows/:userId — list the user's saved workflows (newest first).
+  router.get('/workflows/:userId', async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = sanitizeUserId(req.params.userId);
+      const workflows = await workflowService.list(userId);
+      return res.json({ success: true, count: workflows.length, workflows });
+    } catch (e: unknown) {
+      const error = e as Error;
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // GET /workflows/:userId/:workflowId — fetch one saved workflow.
+  router.get('/workflows/:userId/:workflowId', async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = sanitizeUserId(req.params.userId);
+      const workflowId = req.params.workflowId;
+      if (!isValidWorkflowId(workflowId)) {
+        return res.status(400).json({ success: false, error: 'Invalid workflow id' });
+      }
+      const wf = await workflowService.get(userId, workflowId);
+      if (!wf) return res.status(404).json({ success: false, error: 'Workflow not found' });
+      return res.json({ success: true, workflow: wf });
+    } catch (e: unknown) {
+      const error = e as Error;
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // GET /workflows/:userId/:workflowId/versions — version history (newest first).
+  router.get('/workflows/:userId/:workflowId/versions', async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = sanitizeUserId(req.params.userId);
+      const workflowId = req.params.workflowId;
+      if (!isValidWorkflowId(workflowId)) {
+        return res.status(400).json({ success: false, error: 'Invalid workflow id' });
+      }
+      const wf = await workflowService.get(userId, workflowId);
+      if (!wf) return res.status(404).json({ success: false, error: 'Workflow not found' });
+      const versions = await workflowService.listVersions(userId, workflowId);
+      return res.json({ success: true, workflowId, count: versions.length, versions });
+    } catch (e: unknown) {
+      const error = e as Error;
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // PUT /workflows/:userId/:workflowId — replace editable fields, bump version,
+  // and snapshot the new state into history.
+  router.put('/workflows/:userId/:workflowId', async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = sanitizeUserId(req.params.userId);
+      const workflowId = req.params.workflowId;
+      if (!isValidWorkflowId(workflowId)) {
+        return res.status(400).json({ success: false, error: 'Invalid workflow id' });
+      }
+      const body = parseBody(workflowBodySchema, req.body, res);
+      if (!body) return;
+
+      const plan = await UserManager.getUserPlan(connection, userId);
+      const steps = validateSteps(body.steps, plan);
+      const webhookUrl = validateWebhookUrl(body.webhookUrl);
+
+      const wf = await workflowService.update(userId, workflowId, {
+        name: body.name,
+        description: body.description ?? null,
+        steps,
+        headless: body.headless ?? null,
+        webhookUrl,
+      });
+      if (!wf) return res.status(404).json({ success: false, error: 'Workflow not found' });
+      return res.json({ success: true, workflow: wf });
+    } catch (e: unknown) {
+      const error = e as Error;
+      res.status(400).json({ success: false, error: error.message });
+    }
+  });
+
+  // DELETE /workflows/:userId/:workflowId — remove a workflow + its history.
+  router.delete('/workflows/:userId/:workflowId', async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = sanitizeUserId(req.params.userId);
+      const workflowId = req.params.workflowId;
+      if (!isValidWorkflowId(workflowId)) {
+        return res.status(400).json({ success: false, error: 'Invalid workflow id' });
+      }
+      const removed = await workflowService.remove(userId, workflowId);
+      if (!removed) return res.status(404).json({ success: false, error: 'Workflow not found' });
+      return res.json({ success: true, deleted: true, workflowId });
+    } catch (e: unknown) {
+      const error = e as Error;
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // POST /workflows/:userId/:workflowId/run — enqueue a job from a saved workflow.
+  // Honours the same ?wait=true (sync) and Idempotency-Key contract as POST /run.
+  router.post('/workflows/:userId/:workflowId/run', async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = sanitizeUserId(req.params.userId);
+      const workflowId = req.params.workflowId;
+      if (!isValidWorkflowId(workflowId)) {
+        return res.status(400).json({ success: false, error: 'Invalid workflow id' });
+      }
+      const wf = await workflowService.get(userId, workflowId);
+      if (!wf) return res.status(404).json({ success: false, error: 'Workflow not found' });
+
+      // Re-validate the stored steps against the CURRENT plan (plan limits may
+      // have changed since the workflow was saved). Request body may optionally
+      // override headless/webhookUrl for this run only.
+      const plan = await UserManager.getUserPlan(connection, userId);
+      const steps = validateSteps(wf.steps, plan);
+      const headless = validateHeadless(
+        req.body?.headless !== undefined ? req.body.headless : wf.headless,
+        config.DEFAULT_HEADLESS
+      );
+      const webhookUrl = validateWebhookUrl(
+        req.body?.webhookUrl !== undefined ? req.body.webhookUrl : wf.webhookUrl
+      );
+
+      const wait = req.query.wait === 'true' || req.query.wait === '1';
+      const rawIdemKey = (req.headers['idempotency-key'] as string | undefined)?.trim();
+      let idemKey: string | null = null;
+      if (rawIdemKey) {
+        if (!isValidIdempotencyKey(rawIdemKey)) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid Idempotency-Key. Allowed: [A-Za-z0-9_.:-], max 200 chars.'
+          });
+        }
+        idemKey = rawIdemKey;
+        const existingJobId = await connection.get(getIdempotencyKey(userId, idemKey));
+        if (existingJobId) {
+          if (wait) {
+            const result = await waitForJobResult(
+              queue, userId, existingJobId, config.RUN_WAIT_MAX_MS, config.RUN_WAIT_POLL_MS
+            );
+            if (result) return res.json({ ...(result as object), idempotent: true });
+          }
+          return res.status(200).json({
+            success: true,
+            jobId: existingJobId,
+            workflowId,
+            idempotent: true,
+            message: 'Duplicate request - returning original job'
+          });
+        }
+      }
+
+      // Quota check (same as /run).
+      const hasQuota = await quotaManager.hasQuotaRemaining(userId, plan.quota);
+      if (!hasQuota) {
+        const usage = await quotaManager.getUsage(userId);
+        return res.status(429).json({
+          success: false,
+          error: 'Daily quota exhausted',
+          quotaMinutes: plan.quota,
+          usedMinutes: Math.round(usage.usedSeconds / 60)
+        });
+      }
+
+      // Queue limit check (same as /run).
+      const activeKey = getUserActiveJobsKey(userId);
+      const currentActiveCount = await connection.scard(activeKey);
+      if (currentActiveCount >= config.MAX_QUEUED_JOBS_PER_USER) {
+        const waiting = await queue.getJobs(['waiting', 'delayed', 'active']);
+        const realCount = waiting.filter((j) => String(j.data.userId) === userId).length;
+        if (realCount >= config.MAX_QUEUED_JOBS_PER_USER) {
+          return res.status(429).json({
+            success: false,
+            error: `Queue limit reached. You have ${realCount}/${config.MAX_QUEUED_JOBS_PER_USER} active jobs.`
+          });
+        }
+      }
+
+      // Enqueue, tagging the job with its source workflow for traceability.
+      const job = await queue.add(
+        'run',
+        { userId, steps, headless, webhookUrl, __workflowId: workflowId, __workflowVersion: wf.version },
+        { priority: plan.priority }
+      );
+      await connection.sadd(activeKey, job.id!);
+      await connection.expire(activeKey, 90 * 60);
+      const thisJobNumber = await connection.scard(activeKey);
+
+      if (idemKey) {
+        await connection.set(
+          getIdempotencyKey(userId, idemKey),
+          job.id!,
+          'EX',
+          config.IDEMPOTENCY_TTL_SECONDS
+        );
+      }
+
+      const isVip = isVipUser(plan.priority, config.VIP_PRIORITY_THRESHOLD);
+
+      if (wait) {
+        const result = await waitForJobResult(
+          queue, userId, job.id!, config.RUN_WAIT_MAX_MS, config.RUN_WAIT_POLL_MS
+        );
+        if (result) {
+          return res.json({ ...(result as object), jobId: job.id, workflowId, waited: true });
+        }
+        return res.status(202).json({
+          success: true,
+          jobId: job.id,
+          workflowId,
+          waited: true,
+          completed: false,
+          message: `Job still running after ${config.RUN_WAIT_MAX_MS}ms; poll GET /job/${userId}/${job.id}`,
+          pollUrl: `/job/${userId}/${job.id}`
+        });
+      }
+
+      return res.json({
+        success: true,
+        jobId: job.id,
+        workflowId,
+        workflowVersion: wf.version,
+        message: 'Workflow job queued successfully',
+        yourJobNumber: thisJobNumber,
+        queueLimit: config.MAX_QUEUED_JOBS_PER_USER,
+        priority: plan.priority,
+        userType: isVip ? 'VIP' : 'Free',
+        webhookEnabled: !!webhookUrl
+      });
+    } catch (e: unknown) {
+      const error = e as Error;
+      res.status(400).json({ success: false, error: error.message });
+    }
+  });
   return router;
 };

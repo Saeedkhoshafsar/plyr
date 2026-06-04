@@ -407,12 +407,14 @@
   6. تست: ۷ تست جدید (LiveBus integration + authorizeLive) + e2e واقعی (WS replay buffer + live stream + رد کلید نامعتبر) — همه سبز
   7. UI: ویوی «نمایش زنده» (`public/js/live.js`، `window.LiveClient`+`LiveView`) + کلیدهای i18n `live.*` + آیتم nav
 
-- [ ] **استپ ۱۷ — Workflow Storage (ذخیره/بازاجرا/مدیریت workflow) (دسته G2)**
-  1. مدل ذخیره‌سازی workflow در Redis (id, userId, name, steps, نسخه, زمان)
-  2. CRUD endpoint: `POST/GET/PUT/DELETE /workflows`
-  3. اجرای workflow ذخیره‌شده با `POST /workflows/:id/run`
-  4. نسخه‌بندی ساده (history) و تعلق به کاربر (auth)
-  5. مستند + هم‌راستا کردن افزونه/n8n/UI با همین storage
+- [x] **استپ ۱۷ — Workflow Storage (ذخیره/بازاجرا/مدیریت workflow) (دسته G2)** ✅ 2026-06-04
+  1. ✅ مدل ذخیره‌سازی workflow در Redis (`WorkflowService`): کلیدهای per-user `wf:meta`, `wf:index`, `wf:ver`, `wf:verindex`؛ رکورد شامل id (تولید سرور `wf_<hex>`), userId, name, description, steps, headless, webhookUrl, version, createdAt, updatedAt
+  2. ✅ CRUD endpoint کامل: `POST /workflows/:userId` (ساخت)، `GET /workflows/:userId` (لیست)، `GET /workflows/:userId/:workflowId` (یکی)، `PUT` (ویرایش + بامپ نسخه)، `DELETE` (حذف + پاک‌سازی history)
+  3. ✅ بازاجرا با `POST /workflows/:userId/:workflowId/run` — همان قرارداد `?wait=true` (sync) و `Idempotency-Key` مثل `/run`؛ job با `__workflowId`/`__workflowVersion` تگ می‌شود؛ امکان override کردن headless/webhookUrl در همان run
+  4. ✅ نسخه‌بندی ساده: هر update یک snapshot در history ذخیره می‌کند؛ `GET /workflows/:userId/:workflowId/versions` (جدیدترین اول)؛ هرس خودکار به `WORKFLOW_MAX_VERSIONS` (پیش‌فرض ۲۰). تعلق به کاربر با strict API-key binding از طریق `:userId` در مسیر (auth + blockCheck در index.ts)
+  5. ✅ مستندسازی: `docs/openapi.yaml` (۵ مسیر `/workflows` + اسکیماهای `WorkflowBody`/`Workflow`/`WorkflowVersion`)، بخش «Saved Workflows» در `n8n-node/README.md`، و README اصلی. اسکیمای واحد steps با `/run` مشترک است (هم‌راستا با افزونه/n8n/UI)
+  - ✅ تست: ۹ تست `workflow-service` + ۱۰ تست route + ۴ تست redis-keys (مجموع جدید ۲۳)؛ **۱۵۰ تست سبز**؛ tsc/build سبز
+  - **زبان/قرارداد:** `src/**` همه CRLF (ویرایش با Python)، `tests/**`+`docs/**` همه LF
 
 - [ ] **استپ ۱۸ — حالت Self-Hosted تک‌کاربره (`DEPLOYMENT_MODE`) (دسته H) — اولویت بالا**
   1. افزودن `DEPLOYMENT_MODE` (`single`/`multi`) به config با پیش‌فرض `single`

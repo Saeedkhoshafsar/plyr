@@ -58,8 +58,24 @@ export const scheduleBodySchema = z.object({
   webhookUrl: z.string().url('webhookUrl must be a valid URL').optional().nullable(),
 });
 
+// [G2] Saved-workflow create/update envelope (Step 17). userId is taken from the
+// URL path (and auth-bound), so it is NOT part of the body. `steps` is asserted
+// here as a non-empty array and deep-validated by validateSteps() in the route.
+export const workflowBodySchema = z.object({
+  name: z
+    .string({ required_error: 'name is required', invalid_type_error: 'name must be a string' })
+    .trim()
+    .min(1, 'name cannot be empty')
+    .max(120, 'name must be at most 120 characters'),
+  description: z.string().max(2000, 'description too long').optional().nullable(),
+  steps: stepsEnvelope,
+  headless: headlessLoose,
+  webhookUrl: z.string().url('webhookUrl must be a valid URL').optional().nullable(),
+});
+
 export type RunBody = z.infer<typeof runBodySchema>;
 export type ScheduleBody = z.infer<typeof scheduleBodySchema>;
+export type WorkflowBody = z.infer<typeof workflowBodySchema>;
 
 // Flatten a ZodError into a single readable message + structured field list.
 export const formatZodError = (err: z.ZodError): { error: string; details: { path: string; message: string }[] } => {

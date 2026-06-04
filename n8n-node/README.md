@@ -79,6 +79,24 @@ n8n (**Workflows → Import from File**). It:
 2. **Automation Backend Trigger** receives the signed webhook for the same job
    on a separate path (verifies the HMAC signature).
 
+## Saved Workflows (G2)
+
+The backend can **store** reusable, versioned workflows so any client (this n8n
+node, the Chrome extension, the dashboard UI) shares the same definitions and
+history. From an **HTTP Request** node (using the same `x-api-key`), call:
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `POST` | `/workflows/:userId` | Create a workflow (`{ name, steps, ... }`) → version 1 |
+| `GET` | `/workflows/:userId` | List the user's workflows |
+| `GET` | `/workflows/:userId/:workflowId` | Fetch one workflow |
+| `PUT` | `/workflows/:userId/:workflowId` | Update (bumps version + snapshots history) |
+| `DELETE` | `/workflows/:userId/:workflowId` | Delete workflow + history |
+| `GET` | `/workflows/:userId/:workflowId/versions` | Version history (newest first) |
+| `POST` | `/workflows/:userId/:workflowId/run` | Re-run a saved workflow (supports `?wait=true` + `Idempotency-Key`) |
+
+See [`docs/openapi.yaml`](../docs/openapi.yaml) for the full contract.
+
 ## CORS note
 
 The action node calls the backend **server-side from n8n**, so browser CORS does
