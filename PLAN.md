@@ -217,6 +217,8 @@
 - **[C2] محاسبه‌ی `thisJobNumber` نادرست** — در `/run` بر اساس `scard` قبل از افزودن محاسبه می‌شود؛ با درخواست‌های همزمان درست نیست. → استپ ۵
 - **[C3] خطای `unhandledRejection` بدون shutdown** — برخلاف `uncaughtException`، در `unhandledRejection` فقط log می‌شود؛ سیاست ناهماهنگ. → استپ ۵
 - **[C4] فقدان Validation مرکزی با Zod** — `zod` در dependencies هست ولی validation دستی در `validation.ts` انجام شده؛ یکپارچه نیست. → استپ ۶
+- **[C5] 🔴 باگ قفل توزیع‌شده‌ی ناامن (کشف‌شده در استپ ۵)** — `ProfileManager.tryLockUser` با `SET NX EX` قفل می‌گیرد (درست)، اما `unlockUser` یک `DEL` بدون‌قیدوشرط می‌زند. اگر قفل job A به‌خاطر TTL منقضی شود و job B قفل را بگیرد، پایان job A قفلِ **B** را حذف می‌کند → نقض mutual-exclusion. راه‌حل: token تصادفی هنگام قفل + آزادسازی شرطی با Lua (compare-and-del). **اولویت بالا** → استپ ۵.۵
+- **[C6] استفاده از `redis.keys('lock:user:*')`** — در `getLockedUserCount` (و احتمالاً جاهای دیگر) `KEYS` blocking است و در production ضدالگوست؛ باید با شمارنده/`SCAN` جایگزین شود. → استپ ۵.۵
 
 ### دسته D — کمبودها / نبود قابلیت
 
@@ -290,11 +292,17 @@
   4. ⚠️ تست build واقعی container در sandbox ممکن نبود (Docker در محیط نصب نیست). به‌جای آن اعتبارسنجی استاتیک شد: compose YAML معتبر، `package-lock.json` موجود برای COPY، `npm run build` سبز، و healthcheck cmd تست شد. → **تست end-to-end container روی ماشین کاربر باید انجام شود** (در README مستند شد).
   5. ✅ بخش «اجرا با Docker» به README اضافه شد (compose up/down، docker build/run، توضیح volumeها و healthcheck).
 
-- [ ] **استپ ۵ — رفع باگ‌های منطقی/Race (دسته C)**
-  1. یکپارچه‌سازی مدیریت active jobs set [C1][C2]
-  2. هماهنگ‌کردن سیاست `unhandledRejection`/`uncaughtException` [C3]
-  3. بازبینی قفل‌گذاری کاربر و Lua scripts
-  4. تست دستی مسیرهای `/run`, `/cancel`, `/job`
+- [x] **استپ ۵ — رفع باگ‌های منطقی/Race (دسته C)** ✅ 2026-06-04
+  1. ✅ [C1] worker `sadd` به‌عنوان نقطه‌ی ثبت معتبر برای جاب‌های scheduled مستندسازی شد (idempotent؛ تنها نقطه‌ی removal در `finally{}`). [C2] `thisJobNumber` حالا از `scard` **بعد از** `sadd` گرفته می‌شود → حذف race خواندن‌قبل‌از‌نوشتن در `/run` همزمان.
+  2. ✅ [C3] `unhandledRejection` با `uncaughtException` هماهنگ شد: هر دو `shutdown()` graceful را صدا می‌زنند (idempotent؛ supervisor/Docker نمونه‌ی تمیز بالا می‌آورد).
+  3. ⚠️ بازبینی قفل‌گذاری → دو باگ جدی کشف شد ([C5] آزادسازی ناامن قفل، [C6] استفاده از `KEYS`). طبق قانون کاری، inline اصلاح نشد؛ در PLAN ثبت و **استپ ۵.۵ با اولویت بالا** پیش از استپ ۶ اضافه شد.
+  4. ✅ تأیید: `npx tsc --noEmit` سبز. تست دستی end-to-end نیازمند Redis زنده است (در استپ ۵.۵ همراه با اصلاح قفل انجام می‌شود).
+
+- [ ] **استپ ۵.۵ — 🔴 رفع باگ قفل توزیع‌شده‌ی ناامن + حذف `KEYS` (اولویت بالا) (دسته C5/C6)**
+  1. افزودن token تصادفی به `tryLockUser` و نگه‌داری آن (per job/owner)
+  2. آزادسازی شرطی `unlockUser` با Lua (compare-and-del روی token)
+  3. جایگزینی `redis.keys('lock:user:*')` با شمارنده‌ی atomic یا `SCAN` غیرمسدودکننده
+  4. تست همزمانی: دو جاب همزمان نباید قفل یکدیگر را حذف کنند (با Redis زنده)
 
 - [ ] **استپ ۶ — یکپارچه‌سازی Validation با Zod (دسته C4)**
   1. تعریف schemaهای Zod برای `/run` و `/schedule`

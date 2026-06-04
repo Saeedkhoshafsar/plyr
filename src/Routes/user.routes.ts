@@ -69,8 +69,6 @@ export const createUserRoutes = (deps: UserRoutesDeps): Router => {
         }
       }
 
-      const thisJobNumber = currentActiveCount + 1;
-
       // Add job to queue
       const job = await queue.add(
         'run',
@@ -78,8 +76,13 @@ export const createUserRoutes = (deps: UserRoutesDeps): Router => {
         { priority: plan.priority }
       );
 
-      await connection.sadd(getUserActiveJobsKey(userId), job.id!);
-      await connection.expire(getUserActiveJobsKey(userId), 90 * 60);
+      // [C1/C2] Add to the active set FIRST, then derive the job number from the
+      // authoritative post-add count. sadd is idempotent (the worker may re-add
+      // scheduled jobs), so this avoids the read-before-write race on concurrent /run.
+      const activeKey = getUserActiveJobsKey(userId);
+      await connection.sadd(activeKey, job.id!);
+      await connection.expire(activeKey, 90 * 60);
+      const thisJobNumber = await connection.scard(activeKey);
 
       const isVip = isVipUser(plan.priority, config.VIP_PRIORITY_THRESHOLD);
 

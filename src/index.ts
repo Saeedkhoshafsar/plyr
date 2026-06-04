@@ -257,6 +257,10 @@ const worker = new Worker('automation-jobs', async (job: Job) => {
     return;
   }
 
+  // [C1] Ensure the job is tracked in the active set. Idempotent: /run already adds
+  // immediate jobs, but SCHEDULED (repeatable) jobs are enqueued by BullMQ and never
+  // pass through /run, so this is their only registration point. The finally{} block
+  // below is the single removal point for both paths.
   await connection.sadd(getUserActiveJobsKey(userId), job.id!);
   await connection.expire(getUserActiveJobsKey(userId), 90 * 60);
 
@@ -531,7 +535,11 @@ process.on('uncaughtException', (err) => {
 });
 
 process.on('unhandledRejection', (reason, promise) => {
+  // [C3] Harmonized with uncaughtException: an unhandled rejection leaves the
+  // process in an undefined state, so we shut down gracefully and let the
+  // supervisor (PM2 / Docker restart policy) bring a clean instance back up.
   console.error('[FATAL] Unhandled Rejection at:', promise, 'reason:', reason);
+  shutdown('unhandledRejection');
 });
 
 // ============================================
