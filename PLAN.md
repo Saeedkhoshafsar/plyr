@@ -390,12 +390,13 @@
   5. ✅ CORS [F5] از قبل پیاده بود؛ هدر `Idempotency-Key` به `Access-Control-Allow-Headers` افزوده شد. `smartLimiter` همچنان روی `/run` فعال است (rate limit مشترک). کلیدهای جدید در `.env.example` مستند شدند.
   - ✅ **تست:** `tsc`/`build` سبز؛ `npm test` = **۱۲۷** (+۱۹: ۱۰ `webhook-signature.test.ts`، ۴ `redis-keys.test.ts`، ۵ `run-n8n.test.ts` با mock connection/queue که dedup، sync-result و timeout→202 را روی هندلر واقعی `/run` تأیید می‌کند). بدون نیاز به Redis/مرورگر در sandbox.
 
-- [ ] **استپ ۱۵ — n8n Community Node (نکته ۲ صاحب پروژه) (دسته F4)**
-  1. ساخت پکیج `n8n-nodes-automationbackend` (ساختار استاندارد n8n)
-  2. عملیات‌ها: Run Workflow / Get Job Result / Create Schedule / Cancel Job
-  3. Trigger node برای دریافت webhookهای ما (با تأیید HMAC)
-  4. Credentials = API Key + Base URL
-  5. مستند نصب در n8n + نمونه‌ی workflow
+- [x] **استپ ۱۵ — n8n Community Node (نکته ۲ صاحب پروژه) (دسته F4)** ✅
+  1. ✅ پکیج مستقل `n8n-node/` با نام `n8n-nodes-automationbackend` (ساختار استاندارد n8n: `package.json` با فیلد `n8n.{credentials,nodes}`، `tsconfig.json`، خروجی `dist/`). به‌جای `gulp` (که در sandbox به‌خاطر build نیتیو فریز می‌کرد) از اسکریپت بدون‌وابستگی `copy-icons.js` برای کپی آیکون‌ها استفاده شد.
+  2. ✅ **Action node** (`AutomationBackend.node.ts`) با ۴ عملیات: **Run Workflow** (`POST /run` + سوییچ Wait→`?wait=true` + فیلد `Idempotency-Key`)، **Get Job Result** (`GET /job/:userId/:jobId`)، **Create Schedule** (`POST /schedule` + cron + name)، **Cancel Job** (`DELETE /cancel/:userId/:jobId` + `closeBrowser`/`closeTab`). از `httpRequestWithAuthentication` + `continueOnFail` استفاده می‌کند.
+  3. ✅ **Trigger node** (`AutomationBackendTrigger.node.ts`): webhook با `httpMethod:POST`؛ تأیید **HMAC** هدر `X-Signature` با همان منطق `src/utils/signature.ts` (constant-time، با/بدون پیشوند `sha256=`)؛ رد امضای نامعتبر با ۴۰۱؛ فیلتر رویداد (`job.completed`/`failed`/`cancelled`/`blocked`/`quota_exhausted`). سازگاری متقابل امضا با بک‌اند با اسکریپت node تأیید شد.
+  4. ✅ **Credentials** `AutomationBackendApi`: `baseUrl` + `apiKey` (هدر `x-api-key`) + `webhookSecret` اختیاری (برای تأیید HMAC در Trigger)؛ دکمه‌ی Test → `GET /me`.
+  5. ✅ `n8n-node/README.md` (نصب از GUI/npm/سورس، جدول عملیات‌ها/مجوزها، نکته‌ی CORS سمت‌سرور) + `examples/example-workflow.json` (Manual→Run(wait) و Trigger با تأیید امضا) — JSON معتبر.
+  - ✅ **تست:** `n8n-workflow` به‌صورت **peerDependency** (نه نصب در sandbox؛ نیازمند build نیتیو `isolated-vm`)؛ یک type-shim محلی `types/n8n-workflow.d.ts` افزوده شد تا پکیج standalone با `tsc` کامپایل شود (نصب با `--legacy-peer-deps` برای رد peer). `npm run build` پکیج **سبز** (dist با فیلد `n8n` در package.json منطبق). tsconfig بک‌اند فقط `src/**` را می‌گیرد پس ایزوله است؛ سوییت بک‌اند بدون رگرسیون **۱۲۷** سبز ماند.
 
 - [x] **استپ ۱۶ — کانال زنده‌ی استاندارد (Live Channel) — قلب «مسیر زنده» (دسته G1)** _(۲۰۲۶-۰۶-۰۴)_
   1. تعریف رویدادهای استاندارد: `job.start`, `log`, `step.start`, `step.done`, `step.error`, `job.done`, `job.error` (در `src/core/LiveBus.ts`)

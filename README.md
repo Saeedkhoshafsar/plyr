@@ -29,6 +29,7 @@ Backend اتوماسیون مرورگر مبتنی بر **Node.js + TypeScript**
 - **افزونهٔ کمکی Chrome (Manifest V3):** پوشهٔ [`extension/`](extension/README.md) — روی مرورگر واقعی خودتان عنصر انتخاب کنید (CSS/XPath با همان منطق Picker بک‌اند)، اکشن‌ها را ضبط کنید (click/fill/press/goto) و با API Key مستقیم از popup به‌صورت یک Flow (`POST /run`) به بک‌اند بفرستید. بدون build؛ از طریق *Load unpacked* نصب می‌شود. راهنمای نصب و نکتهٔ CORS در `extension/README.md`.
 - **Schedule:** زمان‌بندی cron با BullMQ repeatable jobs.
 - **ادغام n8n / API (F3):** حالت همگام `POST /run?wait=true` (صبر تا پایان جاب و بازگشت نتیجه به‌صورت inline؛ در timeout پاسخ `202` با `pollUrl`)، هدر `Idempotency-Key` برای جلوگیری از اجرای دوبارهٔ درخواست‌های تکراری، و **webhookهای امضاشده با HMAC-SHA256** (`X-Signature: sha256=…` + `X-Webhook-Timestamp` وقتی `WEBHOOK_SECRET` ست شود). مشخصات کامل OpenAPI در [`docs/openapi.yaml`](./docs/openapi.yaml).
+- **n8n Community Node (F4):** پکیج [`n8n-node/`](n8n-node/README.md) با نام `n8n-nodes-automationbackend` — یک Action node (Run Workflow / Get Job Result / Create Schedule / Cancel Job) و یک Trigger node (دریافت webhookهای بک‌اند با **تأیید امضای HMAC**)؛ Credentials = Base URL + API Key (+ Webhook Secret اختیاری). نصب و نمونهٔ workflow در `n8n-node/README.md`.
 - **امنیت:** API Key، Admin Secret، Rate Limit، محافظت SSRF، Path-traversal guard.
 
 ---
