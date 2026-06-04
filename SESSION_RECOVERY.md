@@ -94,11 +94,11 @@ PY
 
 ## ۵) وضعیت فعلی (به‌روز در پایان هر استپ)
 
-**استپ‌های تمام‌شده:** ۱، ۲، ۳، ۴، ۵، ۵.۵، ۶، ۷، ۸، ۹ ✅
+**استپ‌های تمام‌شده:** ۱، ۲، ۳، ۴، ۵، ۵.۵، ۶، ۷، ۸، ۹، ۱۰ ✅
 
-**استپ بعدی برای شروع:** **استپ ۱۰ — ادیتور Flow بصری node-based (الهام از Automa) (دسته E1)** — 🔴 **تأکید صاحب پروژه (نکته ۳):** UI باید گرافِ نودها باشد (drag-and-drop، اتصال بصری لبه‌ها، هر اکشن = یک نود)، تبدیل دوطرفه گراف ↔ JSON steps، پنل تنظیمات هر نود، ذخیره/بارگذاری workflow، و اجرای مستقیم از ادیتور.
+**استپ بعدی برای شروع:** **استپ ۱۱ — افزایش بلوک‌ها/اکشن‌های جدید به‌سبک Automa (دسته E2/E3)** (اکشن‌های بیشتر در کاتالوگ `ACTIONS` — مثل condition/loop/keyboard/upload/select-option/get-attribute/wait-for-selector — هم در فرم خطی استپ ۸ و هم در نودهای ادیتور استپ ۱۰؛ و افزودن نودهای کنترل‌جریان (شاخه/حلقه) به ادیتور با چند پورت خروجی).
 
-> 🧭 **برای استپ ۱۰ آماده است:** backend + UI کامل و تست‌ها سبز (`npm test` → ۸۱ تست، `npm run check` سبز). هدف استپ ۱۰: **ادیتور بصری node-based** مثل Automa. نکات: CSP helmet → `scriptSrc:['self']` پس JS باید فایل خارجی باشد (بدون inline) و کتابخانه‌ی flow باید بدون CDN/inline لود شود (یا فایل لوکال در `public/`، یا پیاده‌سازی SVG/canvas دستی). ترتیب لود اسکریپت: i18n → api → views → app؛ `views.js` قبل از `app.js` است پس `AppUtil` را lazy با `U()` بگیر. کاتالوگ اکشن‌ها (`ACTIONS`) در `public/js/views.js` آماده است؛ هر اکشن = یک نود. تبدیل دوطرفه گراف ↔ `steps[]` همان فرمت `buildPayloadSteps`. همه‌ی `src/**/*.ts` و `package.json` **CRLF**؛ فایل‌های `public/**` و `tests/**` و `*.config.ts` **LF** (Edit tool امن است).
+> 🧭 **برای استپ ۱۱ آماده است:** ادیتور node-based (استپ ۱۰) و فرم خطی (استپ ۸) هر دو از **یک کاتالوگ `ACTIONS` مشترک از نظر مفهومی** استفاده می‌کنند — ولی **دو کپی جدا** دارند: یکی در `public/js/views.js` (فرم خطی) و یکی در `public/js/flow-editor.js` (نودها). برای استپ ۱۱ هر اکشن جدید را باید **در هر دو** اضافه کرد (یا کاتالوگ را به یک ماژول مشترک منتقل کرد — توصیه می‌شود). فرمت هر اکشن: `{ id, icon?, fields:[{k,label,type,ph?,options?}] }`؛ بک‌اند `{action, params}` می‌گیرد — مطمئن شو هر اکشن جدید در pipeline اجرای بک‌اند (`src/`) هم پشتیبانی می‌شود وگرنه فقط UI است. نودهای کنترل‌جریان نیاز به چند پورت خروجی دارند (ادیتور فعلاً تک‌پورت/زنجیره‌ای است؛ `toSteps()` خطی است). همه‌ی `public/**` و `tests/**` و `*.config.ts` **LF**؛ `src/**/*.ts` و `package.json` **CRLF**.
 
 **خلاصه‌ی کارهای انجام‌شده‌ی کلیدی:**
 - استپ ۲: ۹ خطای TS رفع شد (import casing، UPLOADS/DOWNLOADS_DIR، redis param، ES2021+DOM lib، new Date guard، implicit any).
@@ -110,6 +110,7 @@ PY
 - استپ ۷: UI بخش ۱ — `public/` + static serving، login با API Key (localStorage `ab_api_key` + `GET /me`)، shell داشبورد (sidebar/topbar) RTL/LTR + i18n، اتصال به `/health`، **CORS صریح [F5]**. e2e Playwright PASS.
 - استپ ۸: UI بخش ۲ — `public/js/views.js` (`window.Views`): flow builder (`ACTIONS` catalog) → `POST /run`، صفحه‌ی jobs + job detail (poll)، Quota، Schedules (list/delete)، پنل admin (`x-admin-token` → `/admin/stats`). **باگ lazy `AppUtil`:** `views.js` قبل از `app.js` لود می‌شود پس `U()` به صورت lazy resolve شد. e2e Playwright بدون خطای console PASS.
 - استپ ۹: **تست و پایدارسازی (D3)** — `vitest`+`supertest`؛ `tests/unit/` (helpers ۱۴، validation ۲۲ شامل SSRF، condition-engine ۱۹ شامل regex امن، schemas ۱۲) + `tests/integration/api.test.ts` (۱۴) روی اپ Express سبک با میدل‌ورهای واقعی auth/admin بدون Redis. اسکریپت‌های `test`/`test:watch`/`check`. **`npm test` → ۸۱ تست سبز**، `npm run check` سبز. عمداً `src/index.ts` import نشد (side-effect `startServer()`).
+- استپ ۱۰: **ادیتور Flow بصری node-based (الهام از Automa)** — `public/js/flow-editor.js` (`window.FlowEditor`): بوم SVG + کارت‌های HTML، drag نودها، اتصال پورت out→in، pan/zoom، حذف نود/لبه، inspector params، save/load/clear در localStorage، اجرای مستقیم `POST /run`، تبدیل دوطرفه گراف↔`steps[]`. ادغام: nav/route `editor`، اسکریپت در index.html (i18n→api→flow-editor→views→app)، کلیدهای `fe.*` (fa+en)، CSS. e2e Playwright: add→connect(start→goto→click)→JSON(۲ step)→save/load→**run(Job ID:1)**؛ بدون خطای console.
 
 **باگ‌های ثبت‌شده که هنوز باز/بعداً:** بخش «دسته‌ها» در `PLAN.md` را ببین. (دسته‌های D–H در استپ‌های ۷+ پوشش داده می‌شوند.)
 

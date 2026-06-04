@@ -488,3 +488,153 @@ table.data td.mono { font-family: ui-monospace, "SFMono-Regular", Menlo, monospa
     position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 150;
   }
 }
+
+/* ============================================
+   Visual node-based Flow editor (step 10)
+   ============================================ */
+.fe-layout {
+  display: grid;
+  grid-template-columns: 180px 1fr 260px;
+  gap: 12px;
+  height: 560px;
+  margin-top: 12px;
+}
+.fe-palette,
+.fe-inspector {
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  overflow-y: auto;
+}
+.palette-title,
+.insp-head {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+}
+.palette-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  cursor: pointer;
+  text-align: start;
+  transition: border-color var(--transition), transform var(--transition);
+}
+.palette-item:hover { border-color: var(--primary); transform: translateY(-1px); }
+.pi-icon { font-size: 16px; }
+.pi-label { font-size: 13px; }
+
+.fe-canvas {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 1px 1px, var(--border) 1px, transparent 0);
+  background-size: 22px 22px;
+  background-color: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: grab;
+}
+.fe-canvas:active { cursor: grabbing; }
+.fe-svg {
+  position: absolute;
+  top: 0; left: 0;
+  width: 4000px;
+  height: 4000px;
+  transform-origin: 0 0;
+  pointer-events: none;
+  overflow: visible;
+}
+.fe-svg path { pointer-events: stroke; }
+.fe-world {
+  position: absolute;
+  top: 0; left: 0;
+  transform-origin: 0 0;
+  width: 0; height: 0;
+}
+.flow-edge {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 2.5;
+  opacity: 0.85;
+  cursor: pointer;
+}
+.flow-edge:hover { stroke: var(--primary-hover); stroke-width: 3.5; }
+.flow-edge.pending { stroke-dasharray: 6 5; opacity: 0.6; cursor: default; }
+
+.flow-node {
+  position: absolute;
+  background: var(--bg-elev);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  user-select: none;
+  z-index: 2;
+}
+.flow-node.selected { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-soft); }
+.flow-node.is-start { border-color: #34d399; }
+.flow-node-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  cursor: grab;
+  font-weight: 600;
+  font-size: 13px;
+}
+.flow-node-head:active { cursor: grabbing; }
+.fn-icon { font-size: 15px; }
+.flow-node-sub {
+  padding: 0 10px 8px;
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.flow-node-del {
+  position: absolute;
+  top: 4px;
+  inset-inline-end: 4px;
+  width: 18px; height: 18px;
+  line-height: 16px;
+  text-align: center;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-size: 14px;
+}
+.flow-node-del:hover { background: #ef4444; color: #fff; }
+.flow-port {
+  position: absolute;
+  top: 14px;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--primary);
+  border: 2px solid var(--bg-elev);
+  z-index: 3;
+}
+.flow-port.in { inset-inline-start: -7px; background: var(--text-dim); }
+.flow-port.out { inset-inline-end: -7px; cursor: crosshair; }
+.flow-port.out:hover { transform: scale(1.25); }
+
+.fe-hint { margin-top: 10px; }
+.insp-title { font-weight: 700; margin-bottom: 8px; }
+
+@media (max-width: 980px) {
+  .fe-layout { grid-template-columns: 1fr; height: auto; }
+  .fe-canvas { height: 420px; }
+}

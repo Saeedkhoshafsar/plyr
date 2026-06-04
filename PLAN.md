@@ -343,12 +343,15 @@
   4. ✅ به‌روزرسانی README با بخش «تست و پایداری» (دستورها + ساختار تست‌ها).
   5. ✅ **نتیجه:** `npm test` → **۵ فایل، ۸۱ تست سبز** (۶۷ unit + ۱۴ integration)؛ `npm run check` (tsc --noEmit) سبز.
 
-- [ ] **استپ ۱۰ — ادیتور Flow بصری node-based (پر کردن شکاف اصلی با Automa) (دسته E1) — 🔴 تأکید صاحب پروژه (نکته ۳): باید مثل Automa گراف نودها باشد**
-  1. افزودن کتابخانه‌ی flow بصری node-based به UI (drag-and-drop نودها، اتصال بصری لبه‌ها) — الهام از Vue Flow/Automa؛ هر اکشن = یک نود
-  2. تبدیل دوطرفه بین گراف بصری ↔ JSON steps موجود
-  3. پنل تنظیمات هر نود (params اکشن‌ها به‌صورت فرم)
-  4. ذخیره/بارگذاری workflow (localStorage یا endpoint)
-  5. اجرای مستقیم workflow از ادیتور و نمایش نتیجه
+- [x] **استپ ۱۰ — ادیتور Flow بصری node-based (پر کردن شکاف اصلی با Automa) (دسته E1)** ✅ — 🔴 تأکید صاحب پروژه (نکته ۳): مثل Automa گراف نودها شد
+  1. ✅ `public/js/flow-editor.js` — ادیتور گراف node-based **vanilla و CSP-safe** (بدون framework/CDN؛ بوم SVG + کارت‌های HTML با position مطلق). drag-and-drop نودها، اتصال بصری لبه‌ها (پورت out → پورت in)، pan با کشیدن پس‌زمینه، zoom با چرخ ماوس، حذف نود/لبه. `window.FlowEditor = { mount, unmount, toSteps, loadSteps, saveLocal, loadLocal, reset }`. هر اکشن = یک نود (همان کاتالوگ `ACTIONS` فرم خطی).
+  2. ✅ تبدیل دوطرفه گراف ↔ `steps[]`: `toSteps()` از نود «شروع» زنجیره را دنبال می‌کند و دقیقاً همان `[{action,params}]` بک‌اند را می‌سازد؛ `loadSteps()` از یک آرایه‌ی steps گرافِ زنجیره‌ای می‌سازد. دکمه‌ی «دریافت از فرم اجرا» steps فرم خطی استپ ۸ را وارد می‌کند.
+  3. ✅ پنل تنظیمات هر نود (inspector): انتخاب نود → فرم params آن اکشن (text/number/select) با به‌روزرسانی زنده‌ی خلاصه‌ی نود.
+  4. ✅ ذخیره/بارگذاری/پاک‌سازی workflow در `localStorage` (کلید `ab_flow_graph`).
+  5. ✅ اجرای مستقیم از ادیتور (`POST /run` با خروجی `toSteps()`) + نمایش Job ID و دکمه‌ی پرش به جزئیات جاب؛ دکمه‌ی «نمایش JSON».
+  6. ✅ ادغام UI: مسیر/nav جدید `editor` (آیکن 🧩)، اسکریپت در `index.html` (ترتیب: i18n → api → **flow-editor** → views → app)، کلیدهای i18n `fe.*`/`nav.editor` (fa+en)، CSS کامل ادیتور در `styles.css`. `stopAll()` هنگام خروج از view، `FlowEditor.unmount()` را صدا می‌زند (پاک‌سازی listenerهای window).
+  7. ✅ **تست e2e (Playwright):** login → editor → افزودن نود (goto+click، بدون overlap) → ویرایش param در inspector → اتصال start→goto→click (۲ لبه) → «نمایش JSON» = ۲ step `goto,click` → save/clear/load roundtrip (۳ نود) → **اجرا → جاب در صف (Job ID: 1)** → سویچ زبان/RTL. **بدون خطای console.** `tsc`/`npm run build`/`npm test` (۸۱) سبز.
+  - فرم خطی استپ ۸ به‌عنوان حالت ساده/fallback باقی ماند؛ ادیتور نودی حالت پیشرفته است.
 
 - [ ] **استپ ۱۱ — افزایش بلوک‌ها/اکشن‌ها به‌سبک Automa (دسته E2/E3)**
   1. افزودن اکشن Export داده (CSV/JSON) [E3]

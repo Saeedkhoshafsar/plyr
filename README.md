@@ -19,10 +19,12 @@ Backend اتوماسیون مرورگر مبتنی بر **Node.js + TypeScript**
 | صف کار | BullMQ (روی Redis) |
 | اتوماسیون | Playwright + stealth |
 | ذخیره‌سازی | Redis + JSON روی دیسک |
+| رابط کاربری | Vanilla JS (بدون build)، i18n (فا/EN، RTL/LTR)، CSP سخت |
 | Production | PM2 cluster |
 
 - **Hybrid Browser:** کاربران VIP مرورگر persistent اختصاصی، کاربران Free مرورگر مشترک با context ایزوله.
 - **Flow Engine:** پشتیبانی از `if/else`, `while`, `try/catch/finally`, `switch`, متغیر و ماژول افزونه‌ای.
+- **ادیتور Flow بصری (node-based):** ساخت جریان به‌صورت گراف نودها (الهام از Automa) — هر اکشن یک نود، اتصال بصری نودها، drag-and-drop، pan/zoom، ذخیره/بارگذاری در localStorage و اجرای مستقیم. تبدیل دوطرفه با همان فرمت `steps` بک‌اند. علاوه بر فرم خطی ساده.
 - **Schedule:** زمان‌بندی cron با BullMQ repeatable jobs.
 - **امنیت:** API Key، Admin Secret، Rate Limit، محافظت SSRF، Path-traversal guard.
 

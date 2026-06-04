@@ -17,6 +17,10 @@
   function stopAll() {
     timers.forEach(function (id) { clearInterval(id); });
     timers = [];
+    // tear down the visual editor's window-level listeners when leaving the view
+    if (window.FlowEditor && typeof window.FlowEditor.unmount === 'function') {
+      try { window.FlowEditor.unmount(); } catch (e) { /* noop */ }
+    }
   }
 
   function t(k) { return U().t(k); }
@@ -630,9 +634,117 @@
   // =============================================
   // Public router entry
   // =============================================
+  // ---------------------------------------------
+  // Visual node-based Flow editor (step 10, inspired by Automa).
+  // The heavy lifting lives in window.FlowEditor (flow-editor.js); this view
+  // builds the layout (palette / canvas / inspector) + toolbar and wires the
+  // editor's graph<->steps conversion to POST /run.
+  // ---------------------------------------------
+  function renderEditor(root) {
+    var FE = window.FlowEditor;
+    if (!FE) {
+      root.innerHTML = '<div class="placeholder">⚠️ flow-editor.js not loaded</div>';
+      return;
+    }
+
+    root.innerHTML =
+      '<div class="card">' +
+        '<div class="card-head">' +
+          '<h2>🧩 ' + t('fe.title') + '</h2>' +
+          '<div class="row-actions">' +
+            '<button class="btn btn-ghost btn-sm" id="fe-from-run">' + t('fe.fromRun') + '</button>' +
+            '<button class="btn btn-ghost btn-sm" id="fe-load">' + t('fe.load') + '</button>' +
+            '<button class="btn btn-ghost btn-sm" id="fe-save">' + t('fe.save') + '</button>' +
+            '<button class="btn btn-ghost btn-sm" id="fe-clear">' + t('fe.clear') + '</button>' +
+            '<button class="btn btn-ghost btn-sm" id="fe-json">' + t('fe.toJson') + '</button>' +
+            '<button class="btn btn-primary btn-sm" id="fe-run">▶️ ' + t('fe.run') + '</button>' +
+          '</div>' +
+        '</div>' +
+        '<p class="muted small">' + t('fe.subtitle') + '</p>' +
+        '<div class="fe-layout">' +
+          '<aside class="fe-palette" id="fe-palette"></aside>' +
+          '<div class="fe-canvas" id="fe-canvas">' +
+            '<svg class="fe-svg" id="fe-svg"></svg>' +
+            '<div class="fe-world" id="fe-world"></div>' +
+          '</div>' +
+          '<aside class="fe-inspector"><div class="insp-head">' + t('fe.inspector') +
+            '</div><div id="fe-inspector"></div></aside>' +
+        '</div>' +
+        '<div class="muted small fe-hint">' + t('fe.hint') + '</div>' +
+        '<div id="fe-result"></div>' +
+      '</div>';
+
+    var resultEl = root.querySelector('#fe-result');
+
+    FE.mount({
+      canvas: root.querySelector('#fe-canvas'),
+      svg: root.querySelector('#fe-svg'),
+      world: root.querySelector('#fe-world'),
+      palette: root.querySelector('#fe-palette'),
+      inspector: root.querySelector('#fe-inspector'),
+    });
+
+    root.querySelector('#fe-save').addEventListener('click', function () {
+      var ok = FE.saveLocal();
+      U().toast(ok ? t('fe.saved') : 'error', ok ? 'ok' : 'error');
+    });
+    root.querySelector('#fe-load').addEventListener('click', function () {
+      FE.loadLocal();
+      U().toast(t('fe.loaded'), 'ok');
+    });
+    root.querySelector('#fe-clear').addEventListener('click', function () {
+      FE.reset();
+      U().toast(t('fe.cleared'), 'ok');
+    });
+    root.querySelector('#fe-from-run').addEventListener('click', function () {
+      // import the linear builder steps (if the run view was used this session)
+      FE.loadSteps(buildPayloadSteps());
+      U().toast(t('fe.loaded'), 'ok');
+    });
+    root.querySelector('#fe-json').addEventListener('click', function () {
+      var steps = FE.toSteps();
+      resultEl.innerHTML = '<pre class="json-block">' +
+        esc(JSON.stringify({ steps: steps }, null, 2)) + '</pre>';
+    });
+
+    root.querySelector('#fe-run').addEventListener('click', function () {
+      var uid = effectiveUserId();
+      if (!uid) { U().toast(t('fe.needUserId'), 'error'); return; }
+      var steps = FE.toSteps();
+      if (!steps.length) { U().toast(t('fe.noSteps'), 'error'); return; }
+
+      var btn = root.querySelector('#fe-run');
+      btn.disabled = true;
+      var label = btn.textContent;
+      btn.textContent = t('fe.running');
+      resultEl.innerHTML = '';
+
+      API.runFlow({ userId: uid, steps: steps, headless: true })
+        .then(function (data) {
+          resultEl.innerHTML =
+            '<div class="result-banner ok">✅ ' + t('fe.queued') +
+            ' <code>' + esc(data.jobId) + '</code> ' +
+            '<button class="btn btn-ghost btn-sm" id="fe-goto-job" data-job="' +
+            esc(data.jobId) + '">' + t('run.viewJob') + '</button> ' +
+            '<span class="muted small">(' + steps.length + ' ' + t('fe.steps') + ')</span></div>';
+          var g = resultEl.querySelector('#fe-goto-job');
+          if (g) g.addEventListener('click', function () {
+            location.hash = '#/jobs?job=' + encodeURIComponent(data.jobId) +
+              '&user=' + encodeURIComponent(uid);
+          });
+        })
+        .catch(function (err) {
+          resultEl.innerHTML = '<div class="result-banner err">❌ ' +
+            esc(err && err.message ? err.message : String(err)) + '</div>';
+        })
+        .then(function () { btn.disabled = false; btn.textContent = label; });
+    });
+  }
+
   function render(route, root) {
     switch (route) {
       case 'run': return renderRun(root);
+      case 'editor': return renderEditor(root);
       case 'jobs': return renderJobs(root);
       case 'quota': return renderQuota(root);
       case 'schedules': return renderSchedules(root);

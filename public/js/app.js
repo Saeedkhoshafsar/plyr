@@ -184,7 +184,7 @@
   // ---------------------------------------------
   // Views
   // ---------------------------------------------
-  var ROUTES = ['dashboard', 'run', 'jobs', 'schedules', 'quota', 'admin'];
+  var ROUTES = ['dashboard', 'run', 'editor', 'jobs', 'schedules', 'quota', 'admin'];
 
   function currentRoute() {
     var hash = (location.hash || '').replace(/^#\//, '');
