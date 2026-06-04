@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import path from 'path';
 import os from 'os';
+import { randomBytes } from 'crypto';
 
 const cleanEnv = (val: string | undefined): string | undefined => {
   if (!val) return undefined;
@@ -73,11 +74,47 @@ const parseApiKeys = (): Set<string> => {
   return new Set(keys);
 };
 
+// ============================================
+// [H — Step 18] Deployment mode (single self-hosted vs multi-tenant).
+// 'single' (default): full-access single user, Quota/VIP/Plan/Level disabled,
+// authenticated by one shared API_TOKEN. 'multi': original SaaS behaviour.
+// ============================================
+const resolveDeploymentMode = (): 'single' | 'multi' => {
+  const raw = (cleanEnv(process.env.DEPLOYMENT_MODE) || 'single').toLowerCase();
+  return raw === 'multi' ? 'multi' : 'single';
+};
+const DEPLOYMENT_MODE = resolveDeploymentMode();
+
+// In single mode we accept one shared token. If API_TOKEN is not set we
+// auto-generate a strong random one at boot (printed once to the logs).
+const resolveApiToken = (): string => {
+  const explicit = cleanEnv(process.env.API_TOKEN);
+  if (explicit && explicit.length > 0) return explicit;
+  if (DEPLOYMENT_MODE !== 'single') return '';
+  return `tok_${randomBytes(24).toString('hex')}`;
+};
+const API_TOKEN = resolveApiToken();
+const API_TOKEN_AUTO_GENERATED = DEPLOYMENT_MODE === 'single' && !cleanEnv(process.env.API_TOKEN);
+
+// Full-access plan used for every request in single mode (quota 0 = unlimited).
+const FULL_ACCESS_PLAN: PlanConfig = {
+  quota: 0, maxTabs: 50, maxSteps: 10000, priority: 1, maxSchedules: 1000, runLimit: 0,
+};
+
 export const config = {
   // ============================================
   // Version
   // ============================================
   VERSION: '40.0.0',  // ✅ Updated for Schedule feature
+
+  // ============================================
+  // [H — Step 18] Deployment mode
+  // ============================================
+  DEPLOYMENT_MODE,
+  IS_SINGLE_USER: DEPLOYMENT_MODE === 'single',
+  API_TOKEN,
+  API_TOKEN_AUTO_GENERATED,
+  FULL_ACCESS_PLAN,
 
   // ============================================
   // Server
@@ -269,8 +306,21 @@ if (config.API_KEYS_ENABLED && config.API_KEYS.size === 0) {
   console.warn('[CONFIG] ⚠️ API_KEYS_ENABLED is true but no API_KEYS defined!');
 }
 
-if (config.ADMIN_SECRET === 'admin_secret_change_me') {
-  console.warn('[CONFIG] ⚠️ Using default ADMIN_SECRET! Change it in production.');
+if (config.DEPLOYMENT_MODE === 'multi' && config.ADMIN_SECRET === 'admin_secret_change_me') {
+  console.warn('[CONFIG] ⚠️ Using default ADMIN_SECRET in multi mode! Change it in production.');
+}
+
+if (config.IS_SINGLE_USER) {
+  console.log('[CONFIG] 🏠 DEPLOYMENT_MODE=single — full-access, single-user self-hosted.');
+  if (config.API_TOKEN_AUTO_GENERATED) {
+    console.warn(
+      '[CONFIG] 🔐 No API_TOKEN set — generated a random one for this run:\n' +
+      `        API_TOKEN=${config.API_TOKEN}\n` +
+      '        Set API_TOKEN in your .env to keep it stable across restarts.'
+    );
+  }
+} else {
+  console.log('[CONFIG] 🏢 DEPLOYMENT_MODE=multi — multi-tenant (plans/quotas/admin enabled).');
 }
 
 // ============================================

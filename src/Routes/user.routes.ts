@@ -78,8 +78,10 @@ export const createUserRoutes = (deps: UserRoutesDeps): Router => {
     res.json({
       success: true,
       userId,
-      isAdmin: userId === 'env_root',
-      keyPrefix: req.apiKeyPrefix || null
+      isAdmin: config.IS_SINGLE_USER ? false : userId === 'env_root',
+      keyPrefix: req.apiKeyPrefix || null,
+      mode: config.DEPLOYMENT_MODE,
+      isSingleUser: config.IS_SINGLE_USER
     });
   });
 

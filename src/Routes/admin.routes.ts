@@ -29,6 +29,27 @@ export const createAdminRoutes = (deps: AdminRoutesDeps): Router => {
   // Apply admin auth to all routes
   router.use(requireAdminAuth);
 
+  // ============================================
+  // [H — Step 18] In single-user mode there are no users/plans/API-keys to
+  // manage, so those admin endpoints are hidden (404). Operational endpoints
+  // (stats / cleanup / reload-lua / restart / reset-quota) stay available.
+  // ============================================
+  if (config.IS_SINGLE_USER) {
+    const DISABLED_PREFIXES = ['/set-user-level', '/user/', '/users/', '/api-keys'];
+    router.use((req, res, next) => {
+      const reqPath = req.path;
+      if (DISABLED_PREFIXES.some((pre) => reqPath === pre || reqPath.startsWith(pre))) {
+        res.status(404).json({
+          success: false,
+          error: 'Not available in single-user mode',
+          hint: 'User/plan/API-key management is disabled when DEPLOYMENT_MODE=single.'
+        });
+        return;
+      }
+      next();
+    });
+  }
+
   // ══════════════════════════════════════════
   // GET /stats - System statistics
   // ══════════════════════════════════════════

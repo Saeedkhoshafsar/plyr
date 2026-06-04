@@ -416,13 +416,15 @@
   - ✅ تست: ۹ تست `workflow-service` + ۱۰ تست route + ۴ تست redis-keys (مجموع جدید ۲۳)؛ **۱۵۰ تست سبز**؛ tsc/build سبز
   - **زبان/قرارداد:** `src/**` همه CRLF (ویرایش با Python)، `tests/**`+`docs/**` همه LF
 
-- [ ] **استپ ۱۸ — حالت Self-Hosted تک‌کاربره (`DEPLOYMENT_MODE`) (دسته H) — اولویت بالا**
-  1. افزودن `DEPLOYMENT_MODE` (`single`/`multi`) به config با پیش‌فرض `single`
-  2. در حالت `single`: خاموش‌کردن Quota/VIP/Plan/Level (همه full-access، مرورگر persistent)
-  3. در حالت `single`: یک `API_TOKEN` ساده (تولید تصادفی خودکار اگر تنظیم نشده) به‌جای سیستم چندکاربره
-  4. مخفی/غیرفعال‌کردن endpointهای admin مدیریت کاربر در حالت `single`
-  5. rate-limit سبک پیش‌فرض + هشدارهای امنیتی نصب
-  6. تست هر دو حالت + مستندسازی در README
+- [x] **استپ ۱۸ — حالت Self-Hosted تک‌کاربره (`DEPLOYMENT_MODE`) (دسته H) — اولویت بالا** ✅ 2026-06-04
+  1. ✅ افزودن `DEPLOYMENT_MODE` (`single`/`multi`) به config با پیش‌فرض `single` (+ `IS_SINGLE_USER`، `FULL_ACCESS_PLAN`)
+  2. ✅ در حالت `single`: خاموش‌کردن Quota/VIP/Plan/Level — `UserManager.getEffectivePlan` کوتاه‌مدار به `FULL_ACCESS_PLAN` (baseLevel=`single`)؛ `UserManager.isUserBlocked` همیشه `false` (بدون lookup در Redis)
+  3. ✅ در حالت `single`: یک `API_TOKEN` ساده مشترک (تولید تصادفی خودکار `tok_<48hex>` اگر تنظیم نشده، یک‌بار در boot چاپ می‌شود) با هویت ثابت `SINGLE_USER_ID='local'`؛ بدون strict binding چندکاربره
+  4. ✅ مخفی/غیرفعال‌کردن endpointهای admin مدیریت کاربر در حالت `single` — گارد ۴۰۴ روی پیشوندهای `/set-user-level`, `/user/`, `/users/`, `/api-keys` در `admin.routes.ts`؛ endpointهای عملیاتی (stats/cleanup/reload-lua/restart/reset-quota) باز می‌مانند
+  5. ✅ rate-limit سبک پیش‌فرض (`RATE_LIMIT_PER_MINUTE=120` فعال در هر دو حالت) + هشدارهای امنیتی نصب (boot mode-aware: در `single` چاپ توکن تصادفی، در `multi` هشدار `ADMIN_SECRET` پیش‌فرض)؛ `GET /me` اکنون `mode`/`isSingleUser` را برمی‌گرداند؛ مستندسازی کلیدهای `DEPLOYMENT_MODE`/`API_TOKEN` در `.env.example`
+  6. ✅ تست هر دو حالت: ۷ تست `single-user-mode` (UserManager + auth + مسیر multi)، تثبیت `DEPLOYMENT_MODE=multi` در `tests/integration/setup.ts`؛ مستندسازی در README
+  - ✅ تست: ۷ تست جدید؛ **۱۵۷ تست سبز** (از ۱۵۰)؛ tsc/build سبز
+  - **زبان/قرارداد:** `src/**`+`.env.example` همه CRLF (ویرایش با اسکریپت پایتونِ binary-mode)، `tests/**` همه LF
 
 ---
 

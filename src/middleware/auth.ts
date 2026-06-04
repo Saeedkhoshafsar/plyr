@@ -14,6 +14,9 @@ const API_KEYS_HASH = 'api_keys:active';
 const API_KEYS_META = 'api_keys:metadata';
 const API_KEY_REVOKED_CHANNEL = 'api_key:revoked';
 
+// [H — Step 18] Fixed identity for single-user self-hosted mode.
+export const SINGLE_USER_ID = 'local';
+
 // Interface for metadata
 export interface ApiKeyMetadata {
   userId: string;
@@ -316,6 +319,33 @@ export const requireApiKey = async (
     if (authHeader?.startsWith('Bearer ')) {
       apiKey = authHeader.substring(7).trim();
     }
+  }
+
+  // ============================================
+  // [H — Step 18] SINGLE-USER MODE: one shared API_TOKEN authenticates the
+  // whole instance and resolves to a fixed identity. No Redis key lookup, no
+  // multi-user strict binding.
+  // ============================================
+  if (config.IS_SINGLE_USER) {
+    if (!apiKey) {
+      res.status(401).json({
+        success: false,
+        error: 'Authentication required',
+        hint: 'Provide the API_TOKEN via x-api-key header, api_key query param, or Bearer token'
+      });
+      return;
+    }
+    if (!config.API_TOKEN || apiKey !== config.API_TOKEN) {
+      const masked = apiKey.length > 8 ? apiKey.substring(0, 8) + '...' : '***';
+      console.warn(`[AUTH] ❌ Invalid API_TOKEN: ${masked} from ${req.ip}`);
+      res.status(403).json({ success: false, error: 'Invalid API token' });
+      return;
+    }
+    req.apiKey = apiKey;
+    req.apiKeyPrefix = apiKey.substring(0, Math.min(15, apiKey.length));
+    req.apiKeyUserId = SINGLE_USER_ID;
+    next();
+    return;
   }
 
   // No key provided

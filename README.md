@@ -112,13 +112,35 @@ docker compose down           # توقف
 
 | متغیر | پیش‌فرض | توضیح |
 |-------|---------|-------|
+| `DEPLOYMENT_MODE` | `single` | `single` = self-hosted تک‌کاربرهٔ full-access؛ `multi` = چندکاربرهٔ SaaS (plan/quota/admin) |
+| `API_TOKEN` | _(تولید خودکار)_ | فقط حالت `single`: توکن مشترک احراز هویت. اگر خالی باشد یک `tok_<hex>` تصادفی در boot ساخته و یک‌بار در لاگ چاپ می‌شود |
 | `PORT` | `3000` | پورت سرور |
 | `REDIS_URL` | `redis://127.0.0.1:6379` | اتصال Redis |
-| `API_KEYS` | — | کلیدهای API مجاز (با کاما) |
-| `ADMIN_SECRET` | — | رمز پنل ادمین |
+| `API_KEYS` | — | کلیدهای API مجاز (با کاما) — فقط حالت `multi` |
+| `ADMIN_SECRET` | — | رمز پنل ادمین — فقط حالت `multi` |
 | `MAX_CONCURRENT` | `20` | حداکثر اجرای همزمان |
 | `DEFAULT_HEADLESS` | `true` | اجرای بدون نمایش مرورگر |
 | `CHROME_EXE` | _(خالی)_ | اختیاری؛ مسیر Chrome سیستمی. خالی = Chromium بسته‌بندی‌شده‌ی Playwright |
+
+---
+
+## حالت‌های استقرار (`DEPLOYMENT_MODE`)
+
+این بک‌اند دو حالت اجرا دارد؛ پیش‌فرض **`single`** (مناسب self-hosted):
+
+### 🏠 `single` — تک‌کاربرهٔ self-hosted (پیش‌فرض)
+- **full-access:** Quota / VIP / Plan / Level همگی خاموش‌اند؛ همهٔ درخواست‌ها با سقف بالا اجرا می‌شوند و کاربر مسدودشدنی نیست.
+- **احراز هویت ساده:** یک `API_TOKEN` مشترک کل سرویس را احراز هویت می‌کند. آن را به‌صورت `Authorization: Bearer <API_TOKEN>` (یا هدر `x-api-key`، یا کوئری `?api_key=`) بفرستید. هویت همهٔ درخواست‌ها روی کاربر ثابت `local` نگاشت می‌شود.
+- **تولید خودکار توکن:** اگر `API_TOKEN` تنظیم نشده باشد، یک توکن قوی تصادفی (`tok_<hex>`) هنگام بالا آمدن سرور ساخته و **یک‌بار** در لاگ چاپ می‌شود. برای پایداری بین ری‌استارت‌ها، آن را در `.env` بگذارید.
+- **endpointهای مدیریت کاربرِ admin غیرفعال‌اند:** مسیرهای `/admin/set-user-level`, `/admin/user/*`, `/admin/users/*`, `/admin/api-keys/*` با ۴۰۴ پاسخ می‌دهند؛ اما endpointهای عملیاتی (`/admin/stats`, `/admin/cleanup`, ری‌استارت مرورگر و …) باز می‌مانند.
+- **rate-limit سبک:** `RATE_LIMIT_PER_MINUTE` (پیش‌فرض ۱۲۰) همچنان فعال است.
+- نمونهٔ پاسخ `GET /me`: `{ "success": true, "userId": "local", "isAdmin": false, "mode": "single", "isSingleUser": true }`
+
+### 🏢 `multi` — چندکاربرهٔ SaaS
+- مدل اصلی چندمستأجری: plan/quota/VIP/level per-user، احراز هویت با `API_KEYS` و strict binding هر کلید به مالکش، و پنل کامل admin با `ADMIN_SECRET`.
+- برای فعال‌سازی: `DEPLOYMENT_MODE=multi` به‌علاوهٔ تنظیم `API_KEYS` و یک `ADMIN_SECRET` قوی.
+
+> ⚠️ **امنیت نصب:** در حالت `multi` اگر `ADMIN_SECRET` روی مقدار پیش‌فرض بماند، در boot هشدار داده می‌شود. در حالت `single` حتماً `API_TOKEN` خودتان را ست کنید (یا توکن تصادفیِ چاپ‌شده را نگه دارید) و سرور را پشت TLS/شبکهٔ امن قرار دهید.
 
 ---
 

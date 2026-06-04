@@ -65,6 +65,23 @@ export class UserManager {
    * Get detailed effective plan with override info
    */
   static async getEffectivePlan(redis: Redis, userId: string): Promise<EffectivePlan> {
+    // [H — Step 18] Single-user self-hosted mode: everyone is full-access.
+    // Skip all level/quota/override lookups so Quota/VIP/Plan/Level are off.
+    if (config.IS_SINGLE_USER) {
+      const p = config.FULL_ACCESS_PLAN;
+      return {
+        quota: p.quota,
+        maxTabs: p.maxTabs,
+        maxSteps: p.maxSteps,
+        priority: p.priority,
+        maxSchedules: p.maxSchedules,
+        runLimit: p.runLimit,
+        isOverridden: false,
+        overrides: {},
+        baseLevel: 'single',
+      };
+    }
+
     try {
       // 1. Get base plan from level
       const savedLevel = await redis.get(`user:level:${userId}`);
@@ -324,6 +341,8 @@ export class UserManager {
    * Check if user is blocked
    */
   static async isUserBlocked(redis: Redis, userId: string): Promise<boolean> {
+    // [H — Step 18] No per-user blocking in single-user mode.
+    if (config.IS_SINGLE_USER) return false;
     const key = `user:settings:${userId}`;
     const blocked = await redis.hget(key, 'blockAccess');
     return blocked === 'true';
