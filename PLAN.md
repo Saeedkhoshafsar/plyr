@@ -426,6 +426,13 @@
   - ✅ تست: ۷ تست جدید؛ **۱۵۷ تست سبز** (از ۱۵۰)؛ tsc/build سبز
   - **زبان/قرارداد:** `src/**`+`.env.example` همه CRLF (ویرایش با اسکریپت پایتونِ binary-mode)، `tests/**` همه LF
 
+- [x] **استپ ۱۹ — اسکریپت نصب تعاملی `install.sh` (دسته H3 — نصب آسان)** ✅ 2026-06-04
+  - ✅ اسکریپت `install.sh` تعاملی و **تأییدمحور** (هر مرحله قبل از تغییر سیستم می‌پرسد، مگر با `--yes`). با ساختار `set -euo pipefail`، خروجی رنگی، و تشخیص خودکار ابزارها/پکیج‌منیجر (apt/dnf/yum/pacman/brew).
+  - ✅ سه هدف نصب با منوی انتخاب «سرور یا کلاینت»: (۱) **Server (Docker)** = `docker compose up -d --build` (تشخیص `docker compose` v2 یا `docker-compose` v1)؛ (۲) **Server (Node)** = نصب Redis بومی + `npm install` + Playwright Chromium (با/بدون deps سیستمی) + build + اجرا با PM2 (+ `pm2 startup` systemd اختیاری)؛ (۳) **Client** = راهنمای بارگذاری افزونهٔ Chrome + build و نصب اختیاری n8n node در `~/.n8n/custom`.
+  - ✅ ساخت `.env` از `.env.example` + تولید خودکار `API_TOKEN` تصادفی (`tok_<48hex>` با node/openssl/urandom) و نوشتن آن در `.env` (sed سازگار با GNU/BSD).
+  - ✅ پرچم‌های غیرتعاملی: `--server-docker`/`--server-node`/`--client`/`-y|--yes`/`-h|--help`. اعتبارسنجی: `bash -n` سبز، **shellcheck (سطح warning) تمیز**. مستندسازی در README (بخش «نصب تعاملی»).
+  - **زبان/قرارداد:** `install.sh` با **LF** (اسکریپت شل).
+
 ---
 
 ## 📝 یادداشت‌ها

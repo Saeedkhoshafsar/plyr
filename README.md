@@ -56,6 +56,36 @@ docker run -d --name redis -p 6379:6379 redis:7-alpine
 
 ## نصب
 
+### 🚀 نصب تعاملی با `install.sh` (ساده‌ترین راه)
+
+به‌جای اجرای دستی دستورها، اسکریپت تعاملی `install.sh` همه‌چیز را قدم‌به‌قدم و **با تأیید شما** پیش می‌برد. اول می‌پرسد روی **سرور** نصب می‌کنید یا **کلاینت**:
+
+```bash
+chmod +x install.sh
+./install.sh
+```
+
+سه هدف نصب پشتیبانی می‌شود:
+
+| گزینه | چه‌کار می‌کند |
+|-------|----------------|
+| **۱) Server (Docker)** | استک کامل (app + redis) با `docker compose` — ساده‌ترین مسیر؛ Chromium و وابستگی‌های سیستمی داخل image هستند |
+| **۲) Server (Node)** | نصب بومی: Node deps + Redis (تشخیص خودکار apt/dnf/pacman/brew) + Playwright Chromium + build + اجرا با PM2 (+ systemd اختیاری) |
+| **۳) Client** | ابزارهای سمت کلاینت روی همین دستگاه: راهنمای بارگذاری افزونهٔ Chrome + build و نصب n8n community node در `~/.n8n/custom` |
+
+اسکریپت در حالت سرور می‌تواند `.env` را از `.env.example` بسازد و یک `API_TOKEN` تصادفی برای حالت single تولید و در `.env` بنویسد.
+
+```bash
+# حالت‌های غیرتعاملی (برای CI/automation):
+./install.sh --server-docker        # استک Docker
+./install.sh --server-node          # نصب بومی Node + PM2
+./install.sh --client               # ساخت ابزارهای کلاینت
+./install.sh --server-docker --yes  # بدون پرسش (تأیید خودکار همه‌ی مراحل)
+./install.sh --help                 # راهنما
+```
+
+### نصب دستی (در صورت تمایل)
+
 ```bash
 npm install                          # postinstall به‌صورت خودکار Chromium را دانلود می‌کند (در صورت خطا، non-fatal)
 # اگر می‌خواهید دانلود مرورگر حین نصب انجام نشود:
