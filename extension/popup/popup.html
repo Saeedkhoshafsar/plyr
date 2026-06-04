@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Automation Backend Helper</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header class="hdr">
+    <span class="logo">🤖</span>
+    <h1>Automation Helper</h1>
+    <span class="conn" id="conn" title="connection">—</span>
+  </header>
+
+  <section class="card">
+    <h2>Backend</h2>
+    <label class="field">
+      <span>Base URL</span>
+      <input id="baseUrl" type="text" placeholder="http://localhost:3000" autocomplete="off">
+    </label>
+    <label class="field">
+      <span>API Key</span>
+      <input id="apiKey" type="password" placeholder="your-api-key" autocomplete="off">
+    </label>
+    <label class="field">
+      <span>User ID</span>
+      <input id="userId" type="text" placeholder="0" autocomplete="off">
+    </label>
+    <div class="row">
+      <button class="btn" id="saveCfg">Save</button>
+      <button class="btn ghost" id="checkCfg">Test connection</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Capture</h2>
+    <div class="row">
+      <button class="btn" id="pick">🎯 Pick element</button>
+      <button class="btn" id="record">⏺ Record</button>
+    </div>
+    <div class="picked" id="pickedBox" hidden>
+      <label class="field">
+        <span>CSS</span>
+        <input id="pickedCss" type="text" readonly>
+      </label>
+      <label class="field">
+        <span>XPath</span>
+        <input id="pickedXpath" type="text" readonly>
+      </label>
+      <div class="row">
+        <button class="btn sm" id="addClick">+ click step</button>
+        <button class="btn sm" id="addExtract">+ extract step</button>
+        <button class="btn sm ghost" id="copyCss">Copy CSS</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Steps <span class="count" id="stepCount">0</span></h2>
+    <ol class="steps" id="steps"></ol>
+    <div class="row">
+      <button class="btn ghost sm" id="clearSteps">Clear</button>
+      <button class="btn primary" id="sendFlow">▶ Send to backend</button>
+    </div>
+    <div class="status" id="status"></div>
+  </section>
+
+  <script src="popup.js"></script>
+</body>
+</html>

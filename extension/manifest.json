@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "Automation Backend Helper",
+  "version": "1.0.0",
+  "description": "Element Picker + action recorder for automation-backend. Pick selectors and record click/type/navigation, then send them as a Flow to your backend.",
+  "permissions": ["storage", "activeTab", "scripting", "tabs"],
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "action": {
+    "default_title": "Automation Backend Helper",
+    "default_popup": "popup/popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content/selector.js", "content/recorder.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

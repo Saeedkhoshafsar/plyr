@@ -373,12 +373,14 @@
   - ✅ **UI:** `public/js/browser-view.js` (`window.BrowserView`)، آیتم nav + route `browser` در `app.js`/`views.js` + هوک `stopAll`، کلیدهای i18n `bv.*`+`nav.browser` (fa+en)، اسکریپت در index.html (live → **browser-view** → views).
   - ✅ **تست:** `tsc`/`build` سبز؛ `npm test` = **۱۰۳** (+۵ تست `live-browser.test.ts`: یکتایی id، cap، destroy، shutdown، و match مسیر `/browser/ws`). e2e واقعی (Redis نصب شد، deps مرورگر نصب شد): WS auth → no_key=403، bad_key=403، no_userId=400، valid_key=**OPEN**؛ روی سوکت معتبر پیام `error: browser_unavailable` درست emit شد (مرورگر سروری در sandbox به‌دلیل نبود کامل deps بالا نیامد — محدودیت محیطی، نه باگ)؛ رگرسیون `/live/ws` سالم (403/OPEN)؛ UI بدون خطای console/CSP (Playwright). تستِ استریم واقعیِ فریم باید روی Docker/ماشین کاربر انجام شود.
 
-- [ ] **استپ ۱۳ — افزونه‌ی کمکی Chrome (نکته ۱ صاحب پروژه — راهکار B) (دسته F2)**
-  1. ساخت اسکلت افزونه (manifest v3) در پوشه‌ی `extension/`
-  2. Element Picker روی مرورگر واقعی کاربر (content script)
-  3. ضبط اکشن‌ها (کلیک/تایپ/ناوبری) و تبدیل به steps
-  4. ارسال امن به backend با API Key
-  5. مستند نصب و استفاده
+- [x] **استپ ۱۳ — افزونه‌ی کمکی Chrome (نکته ۱ صاحب پروژه — راهکار B) (دسته F2)** _(۲۰۲۶-۰۶-۰۴)_
+  1. ✅ اسکلت افزونه (Manifest V3) در `extension/`: `manifest.json` (permissions: storage/activeTab/scripting/tabs، host_permissions http+https، action popup، background service_worker، content_scripts، آیکون‌های 16/48/128). آیکون‌ها با PIL ساخته شدند.
+  2. ✅ Element Picker روی مرورگر واقعی (`content/recorder.js` + `content/selector.js`): overlay هایلایت hover، روی کلیک سلکتور CSS+XPath می‌سازد و بدون فعال‌شدن هندلر صفحه به popup گزارش می‌دهد. منطق `window.ABSelector.cssPath/xPath` همان منطق PICKER_SCRIPT بک‌اند است (تأییدشده با تست).
+  3. ✅ ضبط اکشن‌ها → steps (`recorder.js`): click→`click`، input/change→`fill`، Enter→`press`، ناوبری→`goto`. وضعیت در `chrome.storage.local` (`ab_picker/ab_recording/ab_steps/ab_last_url`). فرمت گام `{action, params}` مطابق `ACTION_CATALOG` بک‌اند.
+  4. ✅ ارسال امن به backend با API Key (`background.js`): `sendFlow` → `POST /run` با هدر `x-api-key` و بدنه `{userId, steps, headless:true, webhookUrl?}`؛ `checkConnection` → `GET /me`. fetch از داخل service worker (با host_permissions) تا محدودیت CORS صفحه دور زده شود. کلید هرگز لاگ نمی‌شود. تأییدشده: `/me`=`{success:true,...}`، `/run` با payload افزونه → `{success:true, jobId:"1"}`، بدون کلید → 401.
+  5. ✅ مستند نصب و استفاده: `extension/README.md` (load unpacked در `chrome://extensions`، تنظیم Base URL/API Key/User ID، pick/record/send، جدول مجوزها، و **نکته‌ی CORS**: مسیر background-fetch مستقل از `CORS_ALLOWED_ORIGINS` کار می‌کند؛ توصیه `CORS_ALLOWED_ORIGINS=*` یا origin مشخص افزونه در صورت نیاز).
+  - ✅ **UI افزونه:** `popup/popup.html`+`popup.css`+`popup.js` (CSP-safe، بدون inline JS): بخش Backend (Base/Key/User + Save/Test)، Capture (Pick/Record + کارت عنصر انتخاب‌شده با add click/extract/copy)، Steps (شمارش/Clear/Send)، نوار وضعیت.
+  - ✅ **تست:** `tsc`/`build` سبز؛ `npm test` = **۱۰۸** (+۵ تست `extension-selector.test.ts`: shortcut `#id`، مسیر class+`:nth-of-type`، خالی برای غیرعنصر، XPath `//*[@id=]`، مسیر مطلق ایندکس‌دار — با fake-DOM در sandbox `vm`، بدون افزودن jsdom). قراردادِ افزونه↔بک‌اند روی سرور در حال اجرا تأیید شد. تست واقعی pick/record در Chrome باید روی ماشین کاربر انجام شود (sandbox مرورگر گرافیکی ندارد).
 
 - [ ] **استپ ۱۴ — بهبود API برای ادغام n8n (نکته ۲ صاحب پروژه) (دسته F3/F5)**
   1. افزودن حالت sync: `POST /run?wait=true` (صبر تا پایان + بازگشت نتیجه)
