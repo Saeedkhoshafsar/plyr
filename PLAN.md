@@ -304,11 +304,11 @@
   3. ✅ [C6] helper مشترک `scanKeys` در `utils/redis-keys.ts` اضافه شد (SCAN غیرمسدودکننده) و همه‌ی `KEYS`ها جایگزین شدند: `ProfileManager.getLockedUserCount`, `admin.routes.ts` (۴ مورد), `UserManager.ts` (۲ مورد).
   4. ✅ تست همزمانی با **Redis زنده** نوشته و اجرا شد (۷ سناریو، همه PASS) — مهم‌ترین: سناریوی ۴ اثبات کرد unlock کهنه دیگر قفل تازه‌ی جاب دیگر را نمی‌دزدد. `tsc` و `npm run build` سبز. (آرتیفکت `dump.rdb` به gitignore اضافه شد.)
 
-- [ ] **استپ ۶ — یکپارچه‌سازی Validation با Zod (دسته C4)**
-  1. تعریف schemaهای Zod برای `/run` و `/schedule`
-  2. جایگزینی validation دستی با Zod در routeها
-  3. پیام‌های خطای یکدست
-  4. تست ورودی‌های نامعتبر
+- [x] **استپ ۶ — یکپارچه‌سازی Validation با Zod (دسته C4)** ✅ 2026-06-04
+  1. ✅ `src/schemas.ts` ساخته شد: `runBodySchema` و `scheduleBodySchema` (envelope: userId, steps غیرخالی، headless loose، webhookUrl معتبر، cron با ۵–۶ فیلد) + helperهای `parseBody` و `formatZodError`.
+  2. ✅ هر دو route `/run` و `/schedule` حالا اول با Zod (`parseBody`) اعتبارسنجی envelope را انجام می‌دهند؛ سپس درخت عمیق `steps` همچنان با `validateSteps` سخت‌شده‌ی موجود (legacy format، اندازه، nested if/while/try/switch) sanitize می‌شود. **استراتژی:** Zod برای shape و خطای یکدست، منطق recursive قدیمی برای عمق — بدون شکستن کد battle-tested.
+  3. ✅ پیام‌های خطا یکدست شد: قالب واحد `{ success:false, error, details:[{path,message}] }` با کد ۴۰۰.
+  4. ✅ تست ورودی‌های نامعتبر: ۱۰ سناریو (userId گمشده/عددی، steps خالی/غیرآرایه، webhookUrl بد، cron خالی/۳-فیلدی/۶-فیلدی) همه PASS. `tsc` و `npm run build` سبز.
 
 - [ ] **استپ ۷ — رابط کاربری (UI) — بخش ۱: ساختار و احراز هویت (دسته D1)**
   1. ساخت پوشه `public/` و سرو static از Express

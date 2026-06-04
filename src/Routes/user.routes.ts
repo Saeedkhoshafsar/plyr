@@ -12,6 +12,7 @@ import {
   validateWebhookUrl,
   validateHeadless
 } from '../validation';
+import { runBodySchema, scheduleBodySchema, parseBody } from '../schemas';
 import { isVipUser } from '../utils/helpers';
 import { getUserActiveJobsKey } from '../utils/redis-keys';
 import { readJobFile, readPartialJobFile } from '../services/job.service';
@@ -35,12 +36,17 @@ export const createUserRoutes = (deps: UserRoutesDeps): Router => {
   // ══════════════════════════════════════════
   router.post('/run', async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = sanitizeUserId(req.body.userId);
-      const headless = validateHeadless(req.body.headless, config.DEFAULT_HEADLESS);
+      // [C4] Zod validates the request envelope first (unified 400 errors);
+      // the deep step tree is then sanitized by validateSteps() below.
+      const body = parseBody(runBodySchema, req.body, res);
+      if (!body) return;
+
+      const userId = sanitizeUserId(body.userId);
+      const headless = validateHeadless(body.headless, config.DEFAULT_HEADLESS);
 
       const plan = await UserManager.getUserPlan(connection, userId);
-      const steps = validateSteps(req.body.steps, plan);
-      const webhookUrl = validateWebhookUrl(req.body.webhookUrl);
+      const steps = validateSteps(body.steps, plan);
+      const webhookUrl = validateWebhookUrl(body.webhookUrl);
 
       // Check quota
       const hasQuota = await quotaManager.hasQuotaRemaining(userId, plan.quota);
@@ -108,33 +114,15 @@ export const createUserRoutes = (deps: UserRoutesDeps): Router => {
   // ══════════════════════════════════════════
   router.post('/schedule', async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = sanitizeUserId(req.body.userId);
-      const cron = String(req.body.cron || '').trim();
-      const scheduleName = req.body.name 
-        ? String(req.body.name).substring(0, 50).replace(/[^a-zA-Z0-9_-]/g, '_')
+      // [C4] Zod validates envelope + cron shape (unified 400 errors).
+      const body = parseBody(scheduleBodySchema, req.body, res);
+      if (!body) return;
+
+      const userId = sanitizeUserId(body.userId);
+      const cron = body.cron.trim();
+      const scheduleName = body.name
+        ? String(body.name).substring(0, 50).replace(/[^a-zA-Z0-9_-]/g, '_')
         : `job_${Date.now()}`;
-
-      // ── Validate Cron ──
-      if (!cron) {
-        return res.status(400).json({ 
-          success: false, 
-          error: 'Cron expression required',
-          examples: {
-            everyHour: '0 * * * *',
-            dailyAt8AM: '0 8 * * *',
-            everyMonday: '0 9 * * 1',
-            every15min: '*/15 * * * *'
-          }
-        });
-      }
-
-      const cronParts = cron.split(' ').filter(p => p.length > 0);
-      if (cronParts.length < 5 || cronParts.length > 6) {
-        return res.status(400).json({ 
-          success: false, 
-          error: 'Invalid cron format. Expected 5-6 parts: "minute hour day month weekday"'
-        });
-      }
 
       // ── Get User Plan (includes overrides) ──
       const plan = await UserManager.getUserPlan(connection, userId);
@@ -156,9 +144,9 @@ export const createUserRoutes = (deps: UserRoutesDeps): Router => {
         });
       }
 
-      // ── Validate Steps ──
-      const headless = validateHeadless(req.body.headless, config.DEFAULT_HEADLESS);
-      const steps = validateSteps(req.body.steps, plan);
+      // ── Validate Steps (deep) ──
+      const headless = validateHeadless(body.headless, config.DEFAULT_HEADLESS);
+      const steps = validateSteps(body.steps, plan);
       const webhookUrl = validateWebhookUrl(req.body.webhookUrl);
 
       // ── Create Schedule ID ──
