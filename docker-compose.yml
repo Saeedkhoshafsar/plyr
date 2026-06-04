@@ -1,0 +1,59 @@
+# ============================================================
+# automation-backend — local/self-hosted stack (app + redis)
+# Usage:
+#   cp .env.example .env   # edit values
+#   docker compose up -d --build
+#   docker compose logs -f app
+# ============================================================
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: automation-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    # Not exposed to host by default (only reachable inside the compose network).
+    # Uncomment to access Redis from the host:
+    # ports:
+    #   - "6379:6379"
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: automation-app
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      # Override REDIS_URL to point at the compose service (wins over .env value).
+      REDIS_URL: redis://redis:6379
+      PORT: "3000"
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+    volumes:
+      # Persist runtime data across container restarts
+      - ./logs:/app/logs
+      - ./profiles:/app/profiles
+      - ./uploads:/app/uploads
+      - ./downloads:/app/downloads
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:'+(process.env.PORT||3000)+'/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 25s
+      retries: 3
+
+volumes:
+  redis-data:

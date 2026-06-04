@@ -283,12 +283,12 @@
   5. ✅ `docs/API.md` نوشته شد (همه‌ی endpointهای health/user/admin + احراز هویت `x-api-key`/`x-admin-token` + کدهای وضعیت).
   - ✅ تأیید: `npx tsc --noEmit` → 0 خطا؛ گارد postinstall تست شد.
 
-- [ ] **استپ ۴ — استقرار Node-base: Docker + Compose (دسته D4/D5)**
-  1. نوشتن `Dockerfile` چندمرحله‌ای (build + runtime با Playwright)
-  2. نوشتن `docker-compose.yml` (app + redis)
-  3. افزودن `healthcheck` به compose و route سلامت
-  4. تست build و اجرای محلی container
-  5. مستندسازی اجرا در README
+- [x] **استپ ۴ — استقرار Node-base: Docker + Compose (دسته D4/D5)** ✅ 2026-06-04
+  1. ✅ `Dockerfile` چندمرحله‌ای: stage build (npm install --ignore-scripts + tsc + prune) و stage runtime روی image رسمی `mcr.microsoft.com/playwright:v1.56.1-jammy` (مرورگر + deps سیستمی bundled). `.dockerignore` هم اضافه شد.
+  2. ✅ `docker-compose.yml`: سرویس `app` + `redis:7-alpine` با volume پایدار، `depends_on` با شرط `service_healthy`، و override خودکار `REDIS_URL=redis://redis:6379`. پوشه‌های logs/profiles/uploads/downloads به‌صورت bind-mount پایدار.
+  3. ✅ `healthcheck` در هر دو (Dockerfile + compose) روی مسیر `/health` موجود؛ منطق one-liner تست شد (status 200 → exit 0).
+  4. ⚠️ تست build واقعی container در sandbox ممکن نبود (Docker در محیط نصب نیست). به‌جای آن اعتبارسنجی استاتیک شد: compose YAML معتبر، `package-lock.json` موجود برای COPY، `npm run build` سبز، و healthcheck cmd تست شد. → **تست end-to-end container روی ماشین کاربر باید انجام شود** (در README مستند شد).
+  5. ✅ بخش «اجرا با Docker» به README اضافه شد (compose up/down، docker build/run، توضیح volumeها و healthcheck).
 
 - [ ] **استپ ۵ — رفع باگ‌های منطقی/Race (دسته C)**
   1. یکپارچه‌سازی مدیریت active jobs set [C1][C2]

@@ -74,6 +74,29 @@ npm start
 pm2 start ecosystem.config.js
 ```
 
+## اجرا با Docker (توصیه‌شده برای Self-Hosted)
+
+استک کامل (app + redis) با یک دستور بالا می‌آید:
+
+```bash
+cp .env.example .env          # مقادیر را ویرایش کنید (API_KEYS, ADMIN_SECRET, ...)
+docker compose up -d --build  # build و اجرا
+docker compose logs -f app    # مشاهده‌ی لاگ‌ها
+docker compose down           # توقف
+```
+
+- سرویس روی `http://localhost:3000` در دسترس است.
+- `REDIS_URL` به‌صورت خودکار به سرویس `redis` داخل compose اشاره می‌کند (مقدار `.env` را override می‌کند).
+- پوشه‌های `logs/`, `profiles/`, `uploads/`, `downloads/` به‌صورت volume پایدار می‌مانند.
+- Healthcheck داخلی روی مسیر `/health` تعریف شده (هم در Dockerfile و هم در compose).
+- مرورگر از image رسمی Playwright (`v1.56.1-jammy`) با همه‌ی وابستگی‌های سیستمی تأمین می‌شود — نیازی به نصب جداگانه‌ی Chromium نیست.
+
+> برای اجرای فقط با `docker build`:
+> ```bash
+> docker build -t automation-backend .
+> docker run -p 3000:3000 --env-file .env -e REDIS_URL=redis://host.docker.internal:6379 automation-backend
+> ```
+
 ## متغیرهای محیطی
 
 همه‌ی متغیرها در [`.env.example`](./.env.example) با توضیح آمده‌اند. مهم‌ترین‌ها:
