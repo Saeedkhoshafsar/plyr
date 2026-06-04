@@ -31,6 +31,21 @@ export const createUserRoutes = (deps: UserRoutesDeps): Router => {
   const router = Router();
   const { queue, connection, profileManager, quotaManager } = deps;
 
+  // ══════════════════════
+  // GET /me - identity probe for the UI login flow.
+  // Requires a valid API key (mounted under auth in index.ts) but performs
+  // NO strict user-binding check, so any valid key resolves to its owner.
+  // ══════════════════════
+  router.get('/me', (req: AuthenticatedRequest, res) => {
+    const userId = req.apiKeyUserId || '';
+    res.json({
+      success: true,
+      userId,
+      isAdmin: userId === 'env_root',
+      keyPrefix: req.apiKeyPrefix || null
+    });
+  });
+
   // ══════════════════════════════════════════
   // POST /run - Submit new job (Instant)
   // ══════════════════════════════════════════

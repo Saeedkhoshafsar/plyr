@@ -61,6 +61,35 @@ app.use(helmet({
 app.use(express.json({ limit: config.MAX_REQUEST_BODY_SIZE }));
 
 // ============================================
+// CORS (F5) - explicit, configurable cross-origin control
+// ============================================
+// UI (same-origin), n8n and the browser extension may live on a different
+// origin. We echo back an allowed origin and short-circuit pre-flight.
+const corsAllowed = new Set(config.CORS_ALLOWED_ORIGINS);
+const corsAllowAny = corsAllowed.has('*');
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && (corsAllowAny || corsAllowed.has(origin))) {
+    res.setHeader('Access-Control-Allow-Origin', corsAllowAny ? '*' : origin);
+    if (!corsAllowAny) {
+      res.setHeader('Vary', 'Origin');
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+    }
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
+    res.setHeader(
+      'Access-Control-Allow-Headers',
+      'Content-Type, x-api-key, x-admin-token'
+    );
+    res.setHeader('Access-Control-Max-Age', '600');
+  }
+  if (req.method === 'OPTIONS') {
+    res.status(204).end();
+    return;
+  }
+  next();
+});
+
+// ============================================
 // REDIS & QUEUE
 // ============================================
 
@@ -182,6 +211,7 @@ app.use('/cancel', asyncAuthMiddleware);
 app.use('/job', asyncAuthMiddleware);
 app.use('/jobs', asyncAuthMiddleware);
 app.use('/quota', asyncAuthMiddleware);
+app.use('/me', asyncAuthMiddleware);
 
 // Block check
 const blockCheck = asyncBlockCheck(connection);
@@ -190,6 +220,7 @@ app.use('/cancel', blockCheck);
 app.use('/job', blockCheck);
 app.use('/jobs', blockCheck);
 app.use('/quota', blockCheck);
+app.use('/me', blockCheck);
 
 // ============================================
 // INITIALIZATION
@@ -197,6 +228,19 @@ app.use('/quota', blockCheck);
 
 fsExtra.ensureDirSync(config.PROFILES_DIR);
 fsExtra.ensureDirSync(config.LOGS_DIR);
+
+// ============================================
+// STATIC UI (public/) - served at site root
+// ============================================
+// 'public' lives at the project root (outside src/), so resolve from cwd.
+// Works for both `tsx watch src/index.ts` (dev) and `node dist/index.js` (prod),
+// since both are launched from the project root.
+const PUBLIC_DIR = path.resolve(process.cwd(), 'public');
+app.use(express.static(PUBLIC_DIR, {
+  index: 'index.html',
+  extensions: ['html'],
+  maxAge: config.NODE_ENV === 'production' ? '1h' : 0,
+}));
 
 // ============================================
 // ROUTES

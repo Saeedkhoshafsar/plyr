@@ -4,7 +4,7 @@
 
 - **Repo:** https://github.com/Saeedkhoshafsar/plyr  (branch: `main`)
 - **پروژه:** `automation-backend` — بک‌اند اتوماسیون مرورگر (Node.js + TypeScript)، رایگان/متن‌باز/**Self-Hosted**.
-- **آخرین به‌روزرسانی این سند:** 2026-06-04 — پس از پایان استپ ۶.
+- **آخرین به‌روزرسانی این سند:** 2026-06-04 — پس از پایان استپ ۷.
 
 ---
 
@@ -81,7 +81,9 @@ PY
 - **Entry:** `src/index.ts` (Express + Helmet، صف BullMQ، worker، Lua، graceful shutdown، GC).
 - **Config:** `src/config.ts` (env-driven؛ `cleanEnv`، `parsePlans`، `CHROME_EXE` خالی=Chromium باندل‌شده).
 - **Pipeline اجرا:** `src/pipeline.ts` (`runPipeline`, Flow Engine: if/while/try/switch).
-- **Routes:** `src/Routes/` → `user.routes.ts` (/run,/schedule,/quota,/jobs,/job,/cancel)، `admin.routes.ts` (/admin/*)، `health.routes.ts` (/health). Mount: user/health روی `/`، admin روی `/admin`.
+- **Routes:** `src/Routes/` → `user.routes.ts` (/me,/run,/schedule,/quota,/jobs,/job,/cancel)، `admin.routes.ts` (/admin/*)، `health.routes.ts` (/health). Mount: user/health روی `/`، admin روی `/admin`. **`/me`** = هویت صاحب کلید (بدون strict-binding) برای login UI.
+- **UI (استپ ۷):** پوشه‌ی `public/` در **روت پروژه** (نه `src/`)؛ با `express.static(path.resolve(process.cwd(),'public'))` سرو می‌شود. فایل‌ها: `index.html`، `css/styles.css`، `js/i18n.js` (فارسی/انگلیسی + RTL/LTR)، `js/api.js` (`window.API`: کلید در localStorage `ab_api_key`، `validateKey`→`/me`)، `js/app.js` (login/router/theme/health). همه‌ی فایل‌های `public/**` با **LF** هستند (با Edit کار می‌کنند).
+- **CORS (F5):** middleware صریح در `index.ts` با `config.CORS_ALLOWED_ORIGINS` (env کاما-جدا؛ `*` = هرجا بدون credentials؛ خالی = same-origin). CSP در helmet با `scriptSrc:'self'`/`connectSrc:'self'` ⇒ **JS باید خارجی باشد (نه inline)**.
 - **Core:** `ProfileManager` (مرورگر/قفل کاربر)، `GlobalBrowser` (مرورگر مشترک Free)، `QuotaManager`، `UserManager`.
 - **Validation:** `src/validation.ts` (sanitize عمیق steps) + `src/schemas.ts` (Zod envelope — استپ ۶).
 - **Auth:** کاربر `x-api-key`، ادمین `x-admin-token`.
@@ -92,9 +94,11 @@ PY
 
 ## ۵) وضعیت فعلی (به‌روز در پایان هر استپ)
 
-**استپ‌های تمام‌شده:** ۱، ۲، ۳، ۴، ۵، ۵.۵، ۶ ✅
+**استپ‌های تمام‌شده:** ۱، ۲، ۳، ۴، ۵، ۵.۵، ۶، ۷ ✅
 
-**استپ بعدی برای شروع:** **استپ ۷ — رابط کاربری (UI) بخش ۱: ساختار و احراز هویت** (ساخت `public/`، سرو static از Express، صفحه‌ی ورود با API Key در localStorage، layout داشبورد، CORS).
+**استپ بعدی برای شروع:** **استپ ۸ — رابط کاربری (UI) بخش ۲: ساخت/اجرا/مانیتور جاب** (فرم ساخت Flow و افزودن step/action/params → ارسال به `/run` و نمایش `jobId` → صفحه‌ی مانیتور با poll روی `/job/:userId/:jobId` → صفحه‌ی Quota و لیست/حذف Scheduleها → پنل ادمین ساده).
+
+> 🧭 **برای استپ ۸ آماده است:** زیرساخت UI (router/i18n/theme/API client/CORS) کامل است؛ فقط viewهای جدید را در `public/js/app.js` (تابع `renderComingSoon` فعلاً placeholder روتهای run/jobs/schedules/quota است) جایگزین کن. `API.get/post/del` و `API.getUserId()` آماده‌اند. endpointهای لازم: `POST /run`، `GET /jobs/:userId`، `GET /job/:userId/:jobId`، `GET /quota/:userId`، `GET /schedules/:userId`، `POST /schedule`، `DELETE /schedule/:userId/:key`.
 
 **خلاصه‌ی کارهای انجام‌شده‌ی کلیدی:**
 - استپ ۲: ۹ خطای TS رفع شد (import casing، UPLOADS/DOWNLOADS_DIR، redis param، ES2021+DOM lib، new Date guard، implicit any).

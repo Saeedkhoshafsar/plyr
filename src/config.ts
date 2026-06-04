@@ -146,6 +146,16 @@ export const config = {
   RATE_LIMIT_ENABLED: cleanEnv(process.env.RATE_LIMIT_ENABLED) !== 'false',
   RATE_LIMIT_PER_MINUTE: parseInt(cleanEnv(process.env.RATE_LIMIT_PER_MINUTE) || '120', 10),
   ADMIN_RATE_LIMIT_PER_MINUTE: parseInt(cleanEnv(process.env.ADMIN_RATE_LIMIT_PER_MINUTE) || '30', 10),
+
+  // ============================================
+  // CORS (F5) - explicit cross-origin control for UI / n8n / extension
+  // ============================================
+  // Comma-separated list of allowed origins. '*' allows any origin (no credentials).
+  // Empty => same-origin only (the bundled dashboard works regardless).
+  CORS_ALLOWED_ORIGINS: (cleanEnv(process.env.CORS_ALLOWED_ORIGINS) || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(s => s.length > 0),
   GOD_MODE_IPS: (cleanEnv(process.env.GOD_MODE_IPS) || '127.0.0.1,::1')
     .split(',')
     .map(s => s.trim())

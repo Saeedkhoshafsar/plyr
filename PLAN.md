@@ -310,11 +310,13 @@
   3. ✅ پیام‌های خطا یکدست شد: قالب واحد `{ success:false, error, details:[{path,message}] }` با کد ۴۰۰.
   4. ✅ تست ورودی‌های نامعتبر: ۱۰ سناریو (userId گمشده/عددی، steps خالی/غیرآرایه، webhookUrl بد، cron خالی/۳-فیلدی/۶-فیلدی) همه PASS. `tsc` و `npm run build` سبز.
 
-- [ ] **استپ ۷ — رابط کاربری (UI) — بخش ۱: ساختار و احراز هویت (دسته D1)**
-  1. ساخت پوشه `public/` و سرو static از Express
-  2. صفحه‌ی ورود با API Key (ذخیره در localStorage)
-  3. طرح‌بندی داشبورد (sidebar + header) با CSS مدرن RTL/LTR
-  4. اتصال به endpointهای سلامت و نمایش وضعیت سیستم
+- [x] **استپ ۷ — رابط کاربری (UI) — بخش ۱: ساختار و احراز هویت (دسته D1 + F5) — ۲۰۲۶-۰۶-۰۴**
+  1. ✅ پوشه‌ی `public/` ساخته شد (`index.html`, `css/styles.css`, `js/{i18n,api,app}.js`) و با `express.static(path.resolve(process.cwd(),'public'))` در روت سرو می‌شود (سازگار با هر دو حالت dev `tsx` و prod `node dist/`). `public ./public` به runtime stage در `Dockerfile` اضافه شد تا در ایمیج هم سرو شود.
+  2. ✅ صفحه‌ی ورود با API Key: کلید در `localStorage` (`ab_api_key`) ذخیره می‌شود؛ اعتبارسنجی از طریق endpoint جدید **`GET /me`** (هویت صاحب کلید، **بدون** strict-binding تا هر کلید معتبر به owner خود resolve شود). در boot کلید ذخیره‌شده یک‌بار دوباره اعتبارسنجی می‌شود (کلید باطل/منقضی → بازگشت به login). نمایش/مخفی‌کردن کلید + گزینه‌ی «مرا به خاطر بسپار».
+  3. ✅ طرح‌بندی داشبورد: shell با sidebar (داشبورد/اجرا/جاب‌ها/زمان‌بندی/سهمیه) + topbar (زبان/تم/خروج)، روتر hash، تم dark/light، **i18n فارسی↔انگلیسی با سوییچ RTL/LTR کامل** (`dir`/`lang` روی `<html>`، CSS با `inset-inline-*` و logical properties)، واکنش‌گرا (sidebar موبایل).
+  4. ✅ اتصال به `/health`: نشانگر سیستم زنده (poll هر ۱۰ث) + سه کارت داشبورد (وضعیت سیستم/مرورگرها/ویژگی‌ها) با badgeهای رنگی.
+  5. ✅ **[F5] CORS صریح:** middleware قابل‌تنظیم با `CORS_ALLOWED_ORIGINS` (env)؛ echo امن origin، پشتیبانی `*`, مدیریت preflight (۲۰۴)، هدرهای `x-api-key`/`x-admin-token`. origin غیرمجاز هیچ هدری نمی‌گیرد.
+  6. ✅ **تست e2e واقعی (Playwright):** بارگذاری صفحه بدون خطای console، ورود با کلید تست → داشبورد «سیستم آنلاین»، ۳ کارت رندر شد. CORS با curl تأیید شد (allowed→headers، evil→none). `tsc --noEmit` و `npm run build` سبز.
 
 - [ ] **استپ ۸ — رابط کاربری (UI) — بخش ۲: ساخت/اجرا/مانیتور جاب (دسته D1)**
   1. فرم ساخت Flow (افزودن step، action، params)

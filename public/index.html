@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="dark light" />
+  <title>Automation Backend</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%A4%96%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body data-lang="fa">
+
+  <!-- ============================================ -->
+  <!-- LOGIN SCREEN                                  -->
+  <!-- ============================================ -->
+  <div id="login-screen" class="login-screen">
+    <div class="login-card">
+      <div class="login-logo">🤖</div>
+      <h1 class="login-title" data-i18n="app.title">Automation Backend</h1>
+      <p class="login-subtitle" data-i18n="login.subtitle">برای ورود کلید API خود را وارد کنید</p>
+
+      <form id="login-form" autocomplete="off">
+        <label class="field">
+          <span class="field-label" data-i18n="login.apiKey">کلید API</span>
+          <div class="field-input-wrap">
+            <input
+              type="password"
+              id="api-key-input"
+              class="field-input"
+              placeholder="••••••••••••••••"
+              autocomplete="off"
+              spellcheck="false"
+              required
+            />
+            <button type="button" id="toggle-key" class="icon-btn" aria-label="toggle">👁️</button>
+          </div>
+        </label>
+
+        <label class="field checkbox-field">
+          <input type="checkbox" id="remember-key" checked />
+          <span data-i18n="login.remember">مرا به خاطر بسپار</span>
+        </label>
+
+        <div id="login-error" class="login-error" hidden></div>
+
+        <button type="submit" id="login-btn" class="btn btn-primary btn-block">
+          <span data-i18n="login.submit">ورود</span>
+        </button>
+      </form>
+
+      <div class="login-footer">
+        <button type="button" class="link-btn" id="lang-toggle-login">English</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- DASHBOARD APP SHELL                           -->
+  <!-- ============================================ -->
+  <div id="app" class="app" hidden>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-brand">
+        <span class="brand-logo">🤖</span>
+        <span class="brand-text" data-i18n="app.title">Automation Backend</span>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a href="#/dashboard" class="nav-item" data-route="dashboard">
+          <span class="nav-icon">📊</span>
+          <span class="nav-label" data-i18n="nav.dashboard">داشبورد</span>
+        </a>
+        <a href="#/run" class="nav-item" data-route="run">
+          <span class="nav-icon">▶️</span>
+          <span class="nav-label" data-i18n="nav.run">اجرای Flow</span>
+        </a>
+        <a href="#/jobs" class="nav-item" data-route="jobs">
+          <span class="nav-icon">🗂️</span>
+          <span class="nav-label" data-i18n="nav.jobs">جاب‌ها</span>
+        </a>
+        <a href="#/schedules" class="nav-item" data-route="schedules">
+          <span class="nav-icon">⏰</span>
+          <span class="nav-label" data-i18n="nav.schedules">زمان‌بندی‌ها</span>
+        </a>
+        <a href="#/quota" class="nav-item" data-route="quota">
+          <span class="nav-icon">📈</span>
+          <span class="nav-label" data-i18n="nav.quota">سهمیه</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="sys-indicator" id="sys-indicator">
+          <span class="dot" id="sys-dot"></span>
+          <span id="sys-text" data-i18n="status.checking">در حال بررسی…</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <div class="main">
+      <header class="topbar">
+        <button class="icon-btn menu-toggle" id="menu-toggle" aria-label="menu">☰</button>
+        <h2 class="page-title" id="page-title" data-i18n="nav.dashboard">داشبورد</h2>
+        <div class="topbar-actions">
+          <button class="icon-btn" id="lang-toggle" title="Language">🌐</button>
+          <button class="icon-btn" id="theme-toggle" title="Theme">🌓</button>
+          <button class="btn btn-ghost btn-sm" id="logout-btn" data-i18n="nav.logout">خروج</button>
+        </div>
+      </header>
+
+      <main class="content" id="content">
+        <!-- views are rendered here by app.js -->
+      </main>
+    </div>
+  </div>
+
+  <!-- Toast container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="/js/i18n.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,139 @@
+/* ============================================
+   API client — thin fetch wrapper.
+   Stores the API key in localStorage and attaches
+   it as x-api-key to every authenticated request.
+   Step 7. Exposes window.API.
+   ============================================ */
+(function () {
+  'use strict';
+
+  var KEY_STORAGE = 'ab_api_key';
+  var ADMIN_STORAGE = 'ab_admin_token';
+
+  function getKey() {
+    return localStorage.getItem(KEY_STORAGE) || '';
+  }
+  function setKey(k) {
+    if (k) localStorage.setItem(KEY_STORAGE, k);
+    else localStorage.removeItem(KEY_STORAGE);
+  }
+  function clearKey() {
+    localStorage.removeItem(KEY_STORAGE);
+    localStorage.removeItem(ADMIN_STORAGE);
+    localStorage.removeItem('ab_user_id');
+  }
+  function getAdminToken() {
+    return localStorage.getItem(ADMIN_STORAGE) || '';
+  }
+  function setAdminToken(t) {
+    if (t) localStorage.setItem(ADMIN_STORAGE, t);
+    else localStorage.removeItem(ADMIN_STORAGE);
+  }
+
+  /**
+   * Core request. Resolves with parsed JSON.
+   * Throws { status, message, body } on non-2xx.
+   * opts: { method, body, auth (bool, default true), admin (bool) }
+   */
+  function request(path, opts) {
+    opts = opts || {};
+    var headers = { Accept: 'application/json' };
+    if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
+    if (opts.auth !== false) {
+      var key = getKey();
+      if (key) headers['x-api-key'] = key;
+    }
+    if (opts.admin) {
+      var at = getAdminToken();
+      if (at) headers['x-admin-token'] = at;
+    }
+
+    return fetch(path, {
+      method: opts.method || 'GET',
+      headers: headers,
+      body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+    }).then(function (res) {
+      var ct = res.headers.get('content-type') || '';
+      var parse = ct.indexOf('application/json') !== -1 ? res.json() : res.text();
+      return parse.then(function (data) {
+        if (!res.ok) {
+          var msg = (data && data.error) || (typeof data === 'string' ? data : 'HTTP ' + res.status);
+          var err = new Error(msg);
+          err.status = res.status;
+          err.body = data;
+          throw err;
+        }
+        return data;
+      });
+    });
+  }
+
+  function get(path, opts) {
+    return request(path, Object.assign({ method: 'GET' }, opts || {}));
+  }
+  function post(path, body, opts) {
+    return request(path, Object.assign({ method: 'POST', body: body }, opts || {}));
+  }
+  function del(path, opts) {
+    return request(path, Object.assign({ method: 'DELETE' }, opts || {}));
+  }
+
+  /** Public, unauthenticated health endpoint. */
+  function health() {
+    return request('/health', { auth: false });
+  }
+
+  var USER_STORAGE = 'ab_user_id';
+  function getUserId() {
+    return localStorage.getItem(USER_STORAGE) || '';
+  }
+  function setUserId(id) {
+    if (id) localStorage.setItem(USER_STORAGE, id);
+    else localStorage.removeItem(USER_STORAGE);
+  }
+
+  /**
+   * Validate an API key by calling the identity endpoint /me.
+   * /me requires a valid key but performs no strict user-binding,
+   * so any valid key resolves to its owner.
+   * Resolves with { valid, userId, isAdmin } — rejects only on network errors.
+   */
+  function validateKey(key) {
+    return fetch('/me', {
+      headers: { 'x-api-key': key, Accept: 'application/json' },
+    }).then(function (res) {
+      if (res.status === 401 || res.status === 403) {
+        return { valid: false };
+      }
+      return res
+        .json()
+        .then(function (data) {
+          return {
+            valid: !!(data && data.success),
+            userId: (data && data.userId) || '',
+            isAdmin: !!(data && data.isAdmin),
+          };
+        })
+        .catch(function () {
+          // 2xx but unexpected body: still treat as passed auth
+          return { valid: res.ok };
+        });
+    });
+  }
+
+  window.API = {
+    getKey: getKey,
+    setKey: setKey,
+    clearKey: clearKey,
+    getUserId: getUserId,
+    setUserId: setUserId,
+    getAdminToken: getAdminToken,
+    setAdminToken: setAdminToken,
+    request: request,
+    get: get,
+    post: post,
+    del: del,
+    health: health,
+    validateKey: validateKey,
+  };
+})();

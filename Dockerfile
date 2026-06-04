@@ -36,6 +36,8 @@ WORKDIR /app
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY package.json ./
+# Static dashboard UI (served by Express from the project root at runtime)
+COPY public ./public
 
 # Runtime data directories
 RUN mkdir -p logs profiles uploads downloads
