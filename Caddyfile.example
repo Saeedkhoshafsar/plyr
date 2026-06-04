@@ -1,0 +1,39 @@
+# ============================================================
+# automation-backend — Caddy reverse proxy (auto-HTTPS)
+# ------------------------------------------------------------
+# Caddy automatically obtains and renews a Let's Encrypt TLS
+# certificate for your domain, then proxies traffic to the app
+# running on 127.0.0.1:3000.
+#
+# install.sh (server-node path) generates a real Caddyfile from
+# this template, substituting your domain and port. You can also
+# use it by hand:
+#
+#   1. Install Caddy:            https://caddyserver.com/docs/install
+#   2. Copy this file:           sudo cp Caddyfile.example /etc/caddy/Caddyfile
+#   3. Replace YOUR_DOMAIN and (if needed) the upstream port.
+#   4. Reload Caddy:             sudo systemctl reload caddy
+#
+# Cloudflare note:
+#   Create an A record  YOUR_DOMAIN -> server public IP, and set it
+#   to "DNS only" (grey cloud / proxy OFF) so Caddy can complete the
+#   ACME HTTP/TLS challenge and issue the certificate directly.
+#   You can re-enable the orange proxy later if you switch Caddy to
+#   the Cloudflare DNS-01 challenge.
+# ============================================================
+
+YOUR_DOMAIN {
+	# Forward all requests to the local app (HTML panel + API + live channel).
+	reverse_proxy 127.0.0.1:3000
+
+	# WebSocket upgrades (live browser channel) pass through automatically
+	# with reverse_proxy in modern Caddy; no extra config needed.
+
+	# Sensible logging.
+	log {
+		output file /var/log/caddy/automation-backend.log
+		format console
+	}
+
+	encode zstd gzip
+}

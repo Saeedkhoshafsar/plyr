@@ -56,33 +56,61 @@ docker run -d --name redis -p 6379:6379 redis:7-alpine
 
 ## نصب
 
-### 🚀 نصب تعاملی با `install.sh` (ساده‌ترین راه)
+### 🚀 نصب تک‌خطی (ساده‌ترین راه)
 
-به‌جای اجرای دستی دستورها، اسکریپت تعاملی `install.sh` همه‌چیز را قدم‌به‌قدم و **با تأیید شما** پیش می‌برد. اول می‌پرسد روی **سرور** نصب می‌کنید یا **کلاینت**:
+روی سرور فقط همین یک دستور را بزنید؛ اسکریپت خودش ریپو را می‌گیرد و یک **ویزارد تعاملی** را اجرا می‌کند:
 
 ```bash
-chmod +x install.sh
-./install.sh
+curl -fsSL https://raw.githubusercontent.com/Saeedkhoshafsar/plyr/main/install.sh | bash
 ```
 
-سه هدف نصب پشتیبانی می‌شود:
+> اگر ریپو را قبلاً clone کرده‌اید، می‌توانید مستقیم `chmod +x install.sh && ./install.sh` را اجرا کنید.
+
+ویزارد قدم‌به‌قدم پیش می‌رود و **پیش‌فرض هر مرحله «بله» است** — کافی است Enter بزنید (یا `y`). اول می‌پرسد چه چیزی نصب کنید:
 
 | گزینه | چه‌کار می‌کند |
 |-------|----------------|
-| **۱) Server (Docker)** | استک کامل (app + redis) با `docker compose` — ساده‌ترین مسیر؛ Chromium و وابستگی‌های سیستمی داخل image هستند |
-| **۲) Server (Node)** | نصب بومی: Node deps + Redis (تشخیص خودکار apt/dnf/pacman/brew) + Playwright Chromium + build + اجرا با PM2 (+ systemd اختیاری) |
-| **۳) Client** | ابزارهای سمت کلاینت روی همین دستگاه: راهنمای بارگذاری افزونهٔ Chrome + build و نصب n8n community node در `~/.n8n/custom` |
+| **۱) Server (Node)** | نصب بومی روی سرور: Node 20+ (در صورت نبود نصب می‌شود) + Redis + Playwright Chromium + build + اجرا با PM2. اگر **دامنه** بدهید، خودش **Caddy** را نصب و کانفیگ می‌کند تا پنل با **HTTPS خودکار (Let's Encrypt)** روی دامنه‌تان بالا بیاید. |
+| **۲) Server (Docker)** | استک کامل (app + redis) با `docker compose` — Chromium و وابستگی‌های سیستمی داخل image هستند |
+| **۳) Server (Coolify)** | راهنمای استقرار ایزوله روی [Coolify](https://coolify.io) با فایل آمادهٔ `docker-compose.coolify.yml` (دامنه و TLS را خود Coolify هندل می‌کند) |
+| **۴) Client (Chrome)** | راهنمای بارگذاری افزونهٔ Chrome (Load unpacked) روی PC شما |
+| **۵) Client (n8n)** | build و نصب n8n community node در `~/.n8n/custom` |
 
-اسکریپت در حالت سرور می‌تواند `.env` را از `.env.example` بسازد و یک `API_TOKEN` تصادفی برای حالت single تولید و در `.env` بنویسد.
+مراحل مسیر **Server (Node)**: `[1/6]` وابستگی‌ها → `[2/6]` مرورگر → `[3/6]` ساخت `.env` و تولید `API_TOKEN` تصادفی → `[4/6]` build → `[5/6]` دامنه + HTTPS (اختیاری) → `[6/6]` اجرا با PM2. در پایان **آدرس پنل و توکن** را چاپ می‌کند.
+
+#### 🌐 دامنه و Cloudflare (برای HTTPS)
+
+اگر دامنه دارید (مثلاً `panel.example.com`):
+
+1. در Cloudflare یک رکورد **A** بسازید: `panel.example.com → IP عمومی سرور`
+2. **تیک نارنجی پروکسی را خاموش کنید** (حالت **DNS only** / ابر خاکستری) تا Caddy بتواند مستقیم گواهی Let's Encrypt بگیرد.
+3. موقع نصب دامنه را وارد کنید؛ Caddy خودکار HTTPS را راه می‌اندازد و پنل روی `https://panel.example.com` بالا می‌آید.
+
+> فایل نمونهٔ `Caddyfile.example` در ریشهٔ پروژه هست و اسکریپت از روی آن `/etc/caddy/Caddyfile` را می‌سازد.
 
 ```bash
 # حالت‌های غیرتعاملی (برای CI/automation):
-./install.sh --server-docker        # استک Docker
-./install.sh --server-node          # نصب بومی Node + PM2
-./install.sh --client               # ساخت ابزارهای کلاینت
-./install.sh --server-docker --yes  # بدون پرسش (تأیید خودکار همه‌ی مراحل)
-./install.sh --help                 # راهنما
+./install.sh --server-node --domain panel.example.com   # نصب بومی + HTTPS روی دامنه
+./install.sh --server-node --port 8080                  # نصب بومی روی پورت دلخواه
+./install.sh --server-docker                            # استک Docker
+./install.sh --coolify                                  # راهنمای Coolify
+./install.sh --client                                   # افزونهٔ Chrome
+./install.sh --client-n8n                               # نود n8n
+./install.sh --server-node --yes                        # بدون پرسش (تأیید خودکار)
+./install.sh --help                                     # راهنما
 ```
+
+#### 🐳 استقرار روی Coolify (ایزوله)
+
+برای استقرار هر پروژه در فضای ایزوله، از `docker-compose.coolify.yml` استفاده کنید:
+
+1. Coolify → **+ New** → **Docker Compose** و ریپو را وصل کنید.
+2. Compose file: `docker-compose.coolify.yml`
+3. پورت expose را `3000` بگذارید و دامنه را وصل کنید (Coolify خودش گواهی Let's Encrypt می‌گیرد).
+4. متغیرهای محیطی: `DEPLOYMENT_MODE=single`، `API_TOKEN=tok_...` (یا خالی برای تولید خودکار)، `NODE_ENV=production`.
+5. Deploy و سپس ورود به `https://your-domain/` با همان `API_TOKEN`.
+
+(در این مسیر هم رکورد A را روی Cloudflare بسازید و پروکسی نارنجی را خاموش کنید.)
 
 ### نصب دستی (در صورت تمایل)
 

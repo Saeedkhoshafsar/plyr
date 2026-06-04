@@ -1,0 +1,85 @@
+# ============================================================
+# automation-backend — Coolify deployment stack (app + redis)
+# ------------------------------------------------------------
+# Use this file when deploying via Coolify (https://coolify.io).
+#
+# Why a separate file?
+#   - Coolify provisions an isolated project/network per app and
+#     handles the public domain, TLS and reverse-proxy itself
+#     (via Traefik). So we DON'T publish ports to the host and we
+#     DON'T bundle Caddy here — Coolify's proxy does that.
+#   - The app listens on PORT 3000 internally; in Coolify set the
+#     service "Port" (exposed port) to 3000 and attach your domain.
+#
+# How to deploy on Coolify:
+#   1. Coolify → New Resource → Docker Compose (or "Public/Private Git").
+#   2. Point it at this repository; set the compose file to
+#        docker-compose.coolify.yml
+#   3. Set the exposed port to 3000 and attach your domain
+#      (Coolify will request a Let's Encrypt certificate automatically).
+#   4. Add environment variables (Coolify UI → Environment Variables):
+#        DEPLOYMENT_MODE=single
+#        API_TOKEN=tok_xxxxxxxx...   (or leave empty -> auto-generated at boot)
+#        NODE_ENV=production
+#      REDIS_URL is set below to the internal redis service.
+#   5. Deploy. Open https://your-domain/ and log in with the API_TOKEN.
+#
+# Cloudflare note (if your domain is on Cloudflare):
+#   Create an A record -> server IP and set it to "DNS only"
+#   (grey cloud, proxy OFF) so Coolify/Traefik can issue the cert.
+# ============================================================
+
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      # Internal redis service (same compose network).
+      REDIS_URL: redis://redis:6379
+      PORT: "3000"
+      NODE_ENV: production
+      # --- Set these in the Coolify Environment Variables UI ---
+      # Defaults provided here so the stack boots even before you
+      # customise them; override in Coolify for production.
+      DEPLOYMENT_MODE: ${DEPLOYMENT_MODE:-single}
+      API_TOKEN: ${API_TOKEN:-}
+    # Coolify maps the public domain to this internal port via its proxy.
+    # The magic label below tells Coolify which container port to expose.
+    expose:
+      - "3000"
+    volumes:
+      # Persist runtime data across redeploys.
+      - app-logs:/app/logs
+      - app-profiles:/app/profiles
+      - app-uploads:/app/uploads
+      - app-downloads:/app/downloads
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:'+(process.env.PORT||3000)+'/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 25s
+      retries: 3
+
+volumes:
+  redis-data:
+  app-logs:
+  app-profiles:
+  app-uploads:
+  app-downloads:
