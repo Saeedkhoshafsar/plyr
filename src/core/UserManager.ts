@@ -1,5 +1,6 @@
 import type { Redis } from 'ioredis';
 import { config, PlanConfig } from '../config';
+import { scanKeys } from '../utils/redis-keys';
 
 export type SubscriptionType = 'free' | 'lifetime' | 'expiring';
 
@@ -435,7 +436,7 @@ export class UserManager {
    * Get all users with plan overrides
    */
   static async getUsersWithOverrides(redis: Redis): Promise<{ userId: string; overrides: UserPlanOverrides }[]> {
-    const keys = await redis.keys('user:plan:*');
+    const keys = await scanKeys(redis, 'user:plan:*');
     const result: { userId: string; overrides: UserPlanOverrides }[] = [];
 
     for (const key of keys) {
@@ -456,7 +457,7 @@ export class UserManager {
     redis: Redis, 
     filter?: { blocked?: boolean; sequential?: boolean }
   ): Promise<{ userId: string; settings: UserSettings }[]> {
-    const keys = await redis.keys('user:settings:*');
+    const keys = await scanKeys(redis, 'user:settings:*');
     const result: { userId: string; settings: UserSettings }[] = [];
 
     for (const key of keys) {

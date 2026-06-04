@@ -265,16 +265,19 @@ const worker = new Worker('automation-jobs', async (job: Job) => {
   await connection.expire(getUserActiveJobsKey(userId), 90 * 60);
 
   const shouldLock = isVip || config.FREE_FORCE_SEQUENTIAL || userSettings.forceSequential;
+  // [C5] Hold the lock token returned by tryLockUser so we can release it conditionally.
+  let lockToken: string | null = null;
 
   if (shouldLock) {
-    if (!(await profileManager.tryLockUser(connection, userId))) {
+    lockToken = await profileManager.tryLockUser(connection, userId);
+    if (!lockToken) {
       await job.moveToDelayed(Date.now() + config.QUEUE_DELAY_MS);
       return;
     }
 
     if (await hasOlderJobs(userId, job.id!)) {
       console.log(`[ORDER] Waiting for older jobs -> User ${userId}`);
-      await profileManager.unlockUser(connection, userId);
+      await profileManager.unlockUser(connection, userId, lockToken);
       await job.moveToDelayed(Date.now() + 1000);
       return;
     }
@@ -423,7 +426,7 @@ const worker = new Worker('automation-jobs', async (job: Job) => {
 
   } finally {
     if (shouldLock) {
-      await profileManager.unlockUser(connection, userId);
+      await profileManager.unlockUser(connection, userId, lockToken);
       if (isVip) {
         profileManager.updateActivity(userId);
       }

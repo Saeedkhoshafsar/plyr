@@ -24,3 +24,6 @@ Redis/
 .DS_Store
 chromium/
 .env.example.tmp
+
+# Redis dump (test artifact)
+dump.rdb

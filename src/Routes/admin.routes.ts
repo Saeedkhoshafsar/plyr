@@ -10,7 +10,7 @@ import { GlobalBrowser } from '../core/GlobalBrowser';
 import { sanitizeUserId } from '../validation';
 import { requireAdminAuth } from '../middleware/admin-auth';
 import { parseInteger, parseBoolean, isVipUser } from '../utils/helpers';
-import { STATS_KEY, getUserActiveJobsKey } from '../utils/redis-keys';
+import { STATS_KEY, getUserActiveJobsKey, scanKeys } from '../utils/redis-keys';
 import { getApiKeyManager, generateApiKey } from '../middleware/auth';
 
 interface AdminRoutesDeps {
@@ -62,8 +62,8 @@ export const createAdminRoutes = (deps: AdminRoutesDeps): Router => {
 
       // Count blocked users
       const [settingsKeys, planKeys] = await Promise.all([
-        connection.keys('user:settings:*'),
-        connection.keys('user:plan:*')
+        scanKeys(connection, 'user:settings:*'),
+        scanKeys(connection, 'user:plan:*')
       ]);
 
       let blockedCount = 0;
@@ -543,7 +543,7 @@ export const createAdminRoutes = (deps: AdminRoutesDeps): Router => {
         const maxDays = parseInteger(withinDays) || 7;
         const maxUsers = parseInteger(limit) || 100;
 
-        const allKeys = await connection.keys('user:level:*');
+        const allKeys = await scanKeys(connection, 'user:level:*');
         const expiringUsers: { userId: string; ttl: number }[] = [];
 
         for (const key of allKeys) {
@@ -626,7 +626,7 @@ export const createAdminRoutes = (deps: AdminRoutesDeps): Router => {
   router.get('/users/expiring', async (req, res) => {
     try {
       const withinDays = parseInteger(req.query.days) || 7;
-      const allKeys = await connection.keys('user:level:*');
+      const allKeys = await scanKeys(connection, 'user:level:*');
       const expiringUsers: { userId: string; level: string; daysLeft: number }[] = [];
 
       for (const key of allKeys) {

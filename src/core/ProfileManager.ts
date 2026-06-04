@@ -5,6 +5,8 @@ import { config } from '../config';
 import { glob } from 'glob';
 import fs from 'fs/promises';
 import path from 'path';
+import { randomUUID } from 'crypto';
+import { scanKeys } from '../utils/redis-keys';
 
 // VIP: Stored by User ID (Persistent browser)
 interface VipContextEntry {
@@ -234,24 +236,34 @@ export class ProfileManager {
   // USER LOCKING (Only for VIPs)
   // ============================================
 
-  async tryLockUser(redis: Redis, userId: string): Promise<boolean> {
+  // [C5] Safe distributed lock. tryLockUser stores a unique token as the lock value;
+  // unlockUser releases ONLY if the stored token still matches (compare-and-del via Lua),
+  // so a job whose lock already expired can never delete another job's fresh lock.
+  // Returns the token on success, or null if the lock is already held.
+  async tryLockUser(redis: Redis, userId: string): Promise<string | null> {
     const key = `lock:user:${userId}`;
     const ttlSeconds = config.MAX_JOB_DURATION_MINUTES * 60;
-    const result = await redis.set(key, '1', 'EX', ttlSeconds, 'NX');
-    return result === 'OK';
+    const token = randomUUID();
+    const result = await redis.set(key, token, 'EX', ttlSeconds, 'NX');
+    return result === 'OK' ? token : null;
   }
 
-  async unlockUser(redis: Redis, userId: string): Promise<void> {
-    await redis.del(`lock:user:${userId}`);
+  // Conditional release: only deletes the key if its value equals our token.
+  // If token is omitted (legacy/unknown), we DO NOT delete to avoid stealing a lock.
+  async unlockUser(redis: Redis, userId: string, token?: string | null): Promise<void> {
+    const key = `lock:user:${userId}`;
+    if (!token) return; // never blindly DEL someone else's lock
+    const lua = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end";
+    await redis.eval(lua, 1, key, token);
   }
 
   async isUserLocked(redis: Redis, userId: string): Promise<boolean> {
     return (await redis.exists(`lock:user:${userId}`)) === 1;
   }
 
+  // [C6] Non-blocking count via SCAN (KEYS is O(N) and blocks the Redis event loop).
   async getLockedUserCount(redis: Redis): Promise<number> {
-    const keys = await redis.keys('lock:user:*');
-    return keys.length;
+    return (await scanKeys(redis as any, 'lock:user:*')).length;
   }
 
   // ============================================
