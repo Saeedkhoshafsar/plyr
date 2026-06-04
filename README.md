@@ -121,6 +121,36 @@ docker compose down           # توقف
 
 ---
 
+## تست و پایداری
+
+تست‌ها با [Vitest](https://vitest.dev) + [Supertest](https://github.com/ladjs/supertest) نوشته شده‌اند.
+
+```bash
+# اجرای کامل تست‌ها (unit + integration)
+npm test
+
+# اجرای تست‌ها در حالت watch
+npm run test:watch
+
+# بررسی نوع‌ها (type-check) بدون خروجی build
+npm run check
+```
+
+ساختار تست‌ها:
+
+- `tests/unit/` — تست‌های واحد خالص (بدون Redis/شبکه):
+  - `helpers.test.ts` — `parseNumber` / `parseInteger` / `parseBoolean` / `securePath` / `isVipUser`
+  - `validation.test.ts` — `sanitizeUserId` / `sanitizeModuleName` / `sanitizeLogMessage` / `validateWebhookUrl` (SSRF) / `validateHeadless` / `validateSteps`
+  - `condition-engine.test.ts` — عملگرهای `ConditionEngine` (مقایسه/رشته/عددی/regex امن + ضد ReDoS) و `resolveVariables`
+  - `schemas.test.ts` — اسکیماهای Zod (`runBodySchema` / `scheduleBodySchema` / `parseBody`)
+- `tests/integration/` — تست‌های یکپارچه روی یک اپ Express سبک با Supertest:
+  - `api.test.ts` — میدل‌ورهای واقعی احراز هویت: `requireApiKey` (۴۰۱ بدون کلید، ۴۰۳ کلید نامعتبر، ۲۰۰ با کلید env)، `requireAdminApiKey` و `requireAdminAuth` (`x-admin-token`) + روت `/health`
+  - `setup.ts` — قبل از import شدن `src/config.ts` متغیرهای محیطی تست را force می‌کند (از طریق `setupFiles` در `vitest.config.ts`)
+
+> توجه: تست‌های یکپارچه عمداً `src/index.ts` را import نمی‌کنند، چون این فایل هنگام load با `startServer()` سرور و مرورگر را بالا می‌آورد. به‌جای آن، میدل‌ورهای واقعی روی یک اپ Express سبک سوار می‌شوند. مسیرهای auth کلید-env و admin-token بدون Redis کار می‌کنند؛ بررسی strict-binding کلیدِ کاربر به Redis نیاز دارد.
+
+---
+
 ## وضعیت توسعه
 
 این پروژه طبق `PLAN.md` به‌صورت استپ‌به‌استپ تکمیل می‌شود. وضعیت لحظه‌ای استپ‌ها را در همان فایل ببینید.

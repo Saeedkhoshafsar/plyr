@@ -168,6 +168,15 @@
 - **n8n Community Node (استپ ۱۵):**
   ساخت پکیج `n8n-nodes-automationbackend` با عملیات: `Run Workflow`, `Get Job Result`, `Create Schedule`, `Cancel Job` + یک **Trigger node** که webhookهای ما را دریافت می‌کند. مطابق استاندارد n8n (credentials = API Key + Base URL).
 
+### نکته ۳ (جلسه‌ی ۳) — «رابط کاربری باید node-based (گراف نودها) باشد مثل Automa»
+
+**خواسته‌ی صاحب پروژه:** پروژه‌ی [Automa](https://github.com/automaapp/automa) را بررسی کن؛ مدل **node-based** آن (هر اکشن یک «نود» روی بوم گرافی، با اتصال نودها به هم برای ساخت جریان) خیلی کمک‌کننده است. صاحب پروژه می‌خواهد UI ما هم **دقیقاً node-based** باشد تا کاربر **اختیار و کنترل بهتری** روی ساخت/ویرایش جریان داشته باشد (درگ-اند-دراپ نودها، اتصال بصری، شاخه/شرط/حلقه به صورت نود) — نه فقط فرم خطی افزودن step.
+
+**تصمیم معماری:** این دقیقاً هدف **استپ ۱۰** است (ادیتور Flow بصری) و این نکته اولویت/دامنه‌ی آن را تقویت می‌کند:
+- ادیتور باید گراف node-based واقعی باشد (الهام از Vue Flow/Automa)؛ هر اکشن = یک نود، لبه‌ها = ترتیب/جریان اجرا. تبدیل دوطرفه‌ی گراف ↔ `steps` JSON موجود.
+- از آنجا که stack ما vanilla JS بدون build است (CSP سخت: `script-src 'self'`)، برای استپ ۱۰ یا کتابخانه‌ی گراف سبک بدون وابستگی framework (مثل Drawflow/LiteGraph) به صورت فایل استاتیک سرو‌شده استفاده می‌شود، یا یک implementation سبک SVG/canvas اختصاصی.
+- فرم خطی فعلی (استپ ۸) به‌عنوان حالت ساده/fallback باقی می‌ماند؛ ادیتور نودی حالت پیشرفته می‌شود.
+
 ---
 
 ## 🔍 «همه‌چیزهای جزئی» که باید در نظر گرفته شوند (چک‌لیست مهندسی)
@@ -327,14 +336,15 @@
   6. ✅ i18n (fa+en) و styles توسعه یافت (فرم/جدول/step-builder/state-badge/json-block). `app.js` روتر به `window.Views` دلگیت می‌کند و `window.AppUtil` را export می‌کند. **باگ رفع‌شده:** `views.js` قبل از `app.js` لود می‌شود، پس `AppUtil` به صورت lazy (تابع `U()`) resolve شد نه capture در لود.
   7. ✅ **تست e2e واقعی (Playwright):** login → dashboard → run → jobs → quota → schedules → admin panel، همه رندر شدند، **بدون خطای console**؛ سویچ زبان (dir) تأیید شد. `tsc --noEmit` و `npm run build` سبز؛ endpoint‌ها با curl تأیید شدند.
 
-- [ ] **استپ ۹ — تست و پایدارسازی (دسته D3)**
-  1. افزودن `vitest`/`jest` و تست واحد برای `validation`, `helpers`, `ConditionEngine`
-  2. تست یکپارچه‌ی مسیرهای API با mock Redis
-  3. اجرای lint/type-check در یک اسکریپت `npm run check`
-  4. به‌روزرسانی README با نحوه‌ی اجرای تست
+- [x] **استپ ۹ — تست و پایدارسازی (دسته D3)** ✅
+  1. ✅ افزودن `vitest`@2.1.9 + `supertest`@7 + `@types/supertest`؛ `vitest.config.ts` (forks/singleFork، setupFiles). تست واحد: `tests/unit/helpers.test.ts` (۱۴)، `tests/unit/validation.test.ts` (۲۲ — شامل SSRF برای `validateWebhookUrl`)، `tests/unit/condition-engine.test.ts` (۱۹ — عملگرها + regex امن ضد ReDoS + `resolveVariables`)، `tests/unit/schemas.test.ts` (۱۲ — اسکیماهای Zod).
+  2. ✅ تست یکپارچه: `tests/integration/api.test.ts` (۱۴) روی یک اپ Express سبک با Supertest، میدل‌ورهای واقعی `requireApiKey`/`requireAdminApiKey`/`requireAdminAuth` + روت `/health`. مسیرهای کلید-env و admin-token بدون Redis کار می‌کنند؛ `tests/integration/setup.ts` env تست را قبل از import شدن `src/config.ts` force می‌کند. عمداً `src/index.ts` import نمی‌شود (به‌خاطر side-effect سطح-ماژولِ `startServer()`).
+  3. ✅ اسکریپت‌های npm: `test` (`vitest run`)، `test:watch` (`vitest`)، `check` (`tsc --noEmit`). هر دو سبز.
+  4. ✅ به‌روزرسانی README با بخش «تست و پایداری» (دستورها + ساختار تست‌ها).
+  5. ✅ **نتیجه:** `npm test` → **۵ فایل، ۸۱ تست سبز** (۶۷ unit + ۱۴ integration)؛ `npm run check` (tsc --noEmit) سبز.
 
-- [ ] **استپ ۱۰ — ادیتور Flow بصری (پر کردن شکاف اصلی با Automa) (دسته E1)**
-  1. افزودن کتابخانه‌ی flow بصری به UI (drag-and-drop نودها) — الهام از Vue Flow
+- [ ] **استپ ۱۰ — ادیتور Flow بصری node-based (پر کردن شکاف اصلی با Automa) (دسته E1) — 🔴 تأکید صاحب پروژه (نکته ۳): باید مثل Automa گراف نودها باشد**
+  1. افزودن کتابخانه‌ی flow بصری node-based به UI (drag-and-drop نودها، اتصال بصری لبه‌ها) — الهام از Vue Flow/Automa؛ هر اکشن = یک نود
   2. تبدیل دوطرفه بین گراف بصری ↔ JSON steps موجود
   3. پنل تنظیمات هر نود (params اکشن‌ها به‌صورت فرم)
   4. ذخیره/بارگذاری workflow (localStorage یا endpoint)

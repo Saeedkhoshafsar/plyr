@@ -94,11 +94,11 @@ PY
 
 ## ۵) وضعیت فعلی (به‌روز در پایان هر استپ)
 
-**استپ‌های تمام‌شده:** ۱، ۲، ۳، ۴، ۵، ۵.۵، ۶، ۷ ✅
+**استپ‌های تمام‌شده:** ۱، ۲، ۳، ۴، ۵، ۵.۵، ۶، ۷، ۸، ۹ ✅
 
-**استپ بعدی برای شروع:** **استپ ۹ — تست و پایدارسازی (دسته D3)** (افزودن `vitest`/`jest` و تست واحد برای `validation`/`helpers`/`ConditionEngine` → تست یکپارچه‌ی مسیرهای API با mock Redis → اسکریپت `npm run check` (lint/type-check) → به‌روزرسانی README با نحوه‌ی اجرای تست).
+**استپ بعدی برای شروع:** **استپ ۱۰ — ادیتور Flow بصری node-based (الهام از Automa) (دسته E1)** — 🔴 **تأکید صاحب پروژه (نکته ۳):** UI باید گرافِ نودها باشد (drag-and-drop، اتصال بصری لبه‌ها، هر اکشن = یک نود)، تبدیل دوطرفه گراف ↔ JSON steps، پنل تنظیمات هر نود، ذخیره/بارگذاری workflow، و اجرای مستقیم از ادیتور.
 
-> 🧭 **برای استپ ۹ آماده است:** کل UI (استپ‌های ۷+۸) کامل و e2e سبز است. برای استپ ۹: هدف تست‌های backend است. ماژول‌های خالص برای تست واحد: `src/validation.ts` (`validateSteps`)، `src/schemas.ts` (Zod)، `src/utils/*` (helpers)، `src/core/ConditionEngine` یا معادل آن در pipeline. دقت: همه‌ی `src/**/*.ts` و `package.json` **CRLF** هستند (برای ویرایش چندخطی از اسکریپت Python با `\r\n` استفاده کن). برای تست یکپارچه از `ioredis-mock` یا Redis زنده (`redis-server --daemonize yes`) استفاده کن.
+> 🧭 **برای استپ ۱۰ آماده است:** backend + UI کامل و تست‌ها سبز (`npm test` → ۸۱ تست، `npm run check` سبز). هدف استپ ۱۰: **ادیتور بصری node-based** مثل Automa. نکات: CSP helmet → `scriptSrc:['self']` پس JS باید فایل خارجی باشد (بدون inline) و کتابخانه‌ی flow باید بدون CDN/inline لود شود (یا فایل لوکال در `public/`، یا پیاده‌سازی SVG/canvas دستی). ترتیب لود اسکریپت: i18n → api → views → app؛ `views.js` قبل از `app.js` است پس `AppUtil` را lazy با `U()` بگیر. کاتالوگ اکشن‌ها (`ACTIONS`) در `public/js/views.js` آماده است؛ هر اکشن = یک نود. تبدیل دوطرفه گراف ↔ `steps[]` همان فرمت `buildPayloadSteps`. همه‌ی `src/**/*.ts` و `package.json` **CRLF**؛ فایل‌های `public/**` و `tests/**` و `*.config.ts` **LF** (Edit tool امن است).
 
 **خلاصه‌ی کارهای انجام‌شده‌ی کلیدی:**
 - استپ ۲: ۹ خطای TS رفع شد (import casing، UPLOADS/DOWNLOADS_DIR، redis param، ES2021+DOM lib، new Date guard، implicit any).
@@ -109,6 +109,7 @@ PY
 - استپ ۶: لایه‌ی Zod (`src/schemas.ts`) برای `/run` و `/schedule`، خطای یکدست؛ تست ۱۰ سناریو PASS.
 - استپ ۷: UI بخش ۱ — `public/` + static serving، login با API Key (localStorage `ab_api_key` + `GET /me`)، shell داشبورد (sidebar/topbar) RTL/LTR + i18n، اتصال به `/health`، **CORS صریح [F5]**. e2e Playwright PASS.
 - استپ ۸: UI بخش ۲ — `public/js/views.js` (`window.Views`): flow builder (`ACTIONS` catalog) → `POST /run`، صفحه‌ی jobs + job detail (poll)، Quota، Schedules (list/delete)، پنل admin (`x-admin-token` → `/admin/stats`). **باگ lazy `AppUtil`:** `views.js` قبل از `app.js` لود می‌شود پس `U()` به صورت lazy resolve شد. e2e Playwright بدون خطای console PASS.
+- استپ ۹: **تست و پایدارسازی (D3)** — `vitest`+`supertest`؛ `tests/unit/` (helpers ۱۴، validation ۲۲ شامل SSRF، condition-engine ۱۹ شامل regex امن، schemas ۱۲) + `tests/integration/api.test.ts` (۱۴) روی اپ Express سبک با میدل‌ورهای واقعی auth/admin بدون Redis. اسکریپت‌های `test`/`test:watch`/`check`. **`npm test` → ۸۱ تست سبز**، `npm run check` سبز. عمداً `src/index.ts` import نشد (side-effect `startServer()`).
 
 **باگ‌های ثبت‌شده که هنوز باز/بعداً:** بخش «دسته‌ها» در `PLAN.md` را ببین. (دسته‌های D–H در استپ‌های ۷+ پوشش داده می‌شوند.)
 
