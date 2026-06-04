@@ -1,0 +1,243 @@
+import 'dotenv/config';
+import path from 'path';
+import os from 'os';
+
+const cleanEnv = (val: string | undefined): string | undefined => {
+  if (!val) return undefined;
+  return val.split('#')[0].trim();
+};
+
+// ============================================
+// Plan Configuration Interface
+// ============================================
+export interface PlanConfig {
+  quota: number;
+  maxTabs: number;
+  maxSteps: number;
+  priority: number;
+  maxSchedules: number;  // ✅ اضافه شد
+  runLimit: number;      // ✅ اضافه شد (0 = unlimited)
+}
+
+// ============================================
+// Parse Plans from Environment
+// ============================================
+const parsePlans = (): Record<string, PlanConfig> => {
+  const defaultPlans: Record<string, PlanConfig> = {
+    "0": { quota: 5, maxTabs: 1, maxSteps: 5, priority: 100, maxSchedules: 2, runLimit: 100 },
+    "1": { quota: 15, maxTabs: 3, maxSteps: 20, priority: 50, maxSchedules: 5, runLimit: 500 },
+    "2": { quota: 60, maxTabs: 10, maxSteps: 100, priority: 10, maxSchedules: 20, runLimit: 0 },
+    "3": { quota: 0, maxTabs: 20, maxSteps: 500, priority: 1, maxSchedules: 100, runLimit: 0 }
+  };
+  
+  try {
+    const raw = cleanEnv(process.env.USER_PLANS);
+    if (!raw) return defaultPlans;
+    
+    const parsed = JSON.parse(raw);
+    
+    // Merge with defaults to ensure all fields exist
+    const result: Record<string, PlanConfig> = {};
+    for (const [level, plan] of Object.entries(parsed)) {
+      const basePlan = defaultPlans[level] || defaultPlans["0"];
+      result[level] = {
+        quota: (plan as any).quota ?? basePlan.quota,
+        maxTabs: (plan as any).maxTabs ?? basePlan.maxTabs,
+        maxSteps: (plan as any).maxSteps ?? basePlan.maxSteps,
+        priority: (plan as any).priority ?? basePlan.priority,
+        maxSchedules: (plan as any).maxSchedules ?? basePlan.maxSchedules,
+        runLimit: (plan as any).runLimit ?? basePlan.runLimit,
+      };
+    }
+    
+    // Ensure all default levels exist
+    for (const [level, plan] of Object.entries(defaultPlans)) {
+      if (!result[level]) {
+        result[level] = plan;
+      }
+    }
+    
+    return result;
+  } catch (e) {
+    console.warn('[CONFIG] Failed to parse USER_PLANS, using defaults');
+    return defaultPlans;
+  }
+};
+
+const parseApiKeys = (): Set<string> => {
+  const raw = cleanEnv(process.env.API_KEYS) || '';
+  const keys = raw
+    .split(',')
+    .map(k => k.trim())
+    .filter(k => k.length > 0);
+  return new Set(keys);
+};
+
+export const config = {
+  // ============================================
+  // Version
+  // ============================================
+  VERSION: '40.0.0',  // ✅ Updated for Schedule feature
+
+  // ============================================
+  // Server
+  // ============================================
+  PORT: parseInt(cleanEnv(process.env.PORT) || '3000', 10),
+  NODE_ENV: cleanEnv(process.env.NODE_ENV) || 'development',
+  
+  // ============================================
+  // Redis
+  // ============================================
+  REDIS_URL: cleanEnv(process.env.REDIS_URL) || 'redis://127.0.0.1:6379',
+  
+  // ============================================
+  // Directories
+  // ============================================
+  PROFILES_DIR: path.resolve(cleanEnv(process.env.PROFILES_DIR) || './profiles'),
+  LOGS_DIR: path.resolve(cleanEnv(process.env.LOGS_DIR) || './logs'),
+  
+  // ============================================
+  // Chrome
+  // ============================================
+  CHROME_EXE: (() => {
+    const env = cleanEnv(process.env.CHROME_EXE);
+    if (env && env !== '') return env;
+    return os.platform() === 'win32' 
+      ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
+      : '/usr/bin/google-chrome';
+  })(),
+
+  // ============================================
+  // Queue Settings
+  // ============================================
+  MAX_CONCURRENT: parseInt(cleanEnv(process.env.MAX_CONCURRENT) || '20', 10),
+  MAX_QUEUED_JOBS_PER_USER: parseInt(cleanEnv(process.env.MAX_QUEUED_JOBS_PER_USER) || '3', 10),
+  MAX_STORED_JOBS_PER_USER: parseInt(cleanEnv(process.env.MAX_STORED_JOBS_PER_USER) || '10', 10),
+  QUEUE_DELAY_MS: parseInt(cleanEnv(process.env.QUEUE_DELAY_MS) || '200', 10),
+
+  // ============================================
+  // Timeouts
+  // ============================================
+  STEP_TIMEOUT_MS: parseInt(cleanEnv(process.env.STEP_TIMEOUT_MS) || '300000', 10),
+  MAX_JOB_DURATION_MINUTES: parseInt(cleanEnv(process.env.MAX_JOB_DURATION_MINUTES) || '90', 10),
+  BROWSER_LAUNCH_TIMEOUT_MS: parseInt(cleanEnv(process.env.BROWSER_LAUNCH_TIMEOUT_MS) || '30000', 10),
+
+  // ============================================
+  // Browser
+  // ============================================
+  DEFAULT_HEADLESS: cleanEnv(process.env.DEFAULT_HEADLESS)?.toLowerCase() !== 'false',
+  TURBO_MODE: cleanEnv(process.env.TURBO_MODE) === 'true',
+
+  // ============================================
+  // Garbage Collector
+  // ============================================
+  PARTIAL_SAVE_INTERVAL: parseInt(cleanEnv(process.env.PARTIAL_SAVE_INTERVAL) || '10', 10),
+  GC_CHECK_INTERVAL_MINUTES: parseInt(cleanEnv(process.env.GC_CHECK_INTERVAL_MINUTES) || '10', 10),
+  GC_STALE_THRESHOLD_MINUTES: parseInt(cleanEnv(process.env.GC_STALE_THRESHOLD_MINUTES) || '15', 10),
+  PARTIAL_FILE_MAX_AGE_HOURS: parseInt(cleanEnv(process.env.PARTIAL_FILE_MAX_AGE_HOURS) || '1', 10),
+  JOB_OUTPUT_MAX_AGE_MS: parseInt(cleanEnv(process.env.JOB_OUTPUT_MAX_AGE_MS) || '1800000', 10),
+
+  // ============================================
+  // Rate Limiting
+  // ============================================
+  RATE_LIMIT_ENABLED: cleanEnv(process.env.RATE_LIMIT_ENABLED) !== 'false',
+  RATE_LIMIT_PER_MINUTE: parseInt(cleanEnv(process.env.RATE_LIMIT_PER_MINUTE) || '120', 10),
+  ADMIN_RATE_LIMIT_PER_MINUTE: parseInt(cleanEnv(process.env.ADMIN_RATE_LIMIT_PER_MINUTE) || '30', 10),
+  GOD_MODE_IPS: (cleanEnv(process.env.GOD_MODE_IPS) || '127.0.0.1,::1')
+    .split(',')
+    .map(s => s.trim())
+    .filter(s => s.length > 0),
+
+  // ============================================
+  // Authentication
+  // ============================================
+  API_KEYS_ENABLED: cleanEnv(process.env.API_KEYS_ENABLED) !== 'false',
+  API_KEYS: parseApiKeys(),
+  ADMIN_SECRET: cleanEnv(process.env.ADMIN_SECRET) || 'admin_secret_change_me',
+
+  // ============================================
+  // User Plans
+  // ============================================
+  USER_PLANS: parsePlans(),
+  DEFAULT_USER_LEVEL: cleanEnv(process.env.DEFAULT_USER_LEVEL) || '0',
+
+  // ============================================
+  // Webhooks
+  // ============================================
+  WEBHOOK_TIMEOUT_MS: parseInt(cleanEnv(process.env.WEBHOOK_TIMEOUT_MS) || '5000', 10),
+  WEBHOOK_ALLOW_PRIVATE_IPS: cleanEnv(process.env.WEBHOOK_ALLOW_PRIVATE_IPS) === 'true',
+  WEBHOOK_MAX_RETRIES: parseInt(cleanEnv(process.env.WEBHOOK_MAX_RETRIES) || '3', 10),
+  WEBHOOK_RETRY_BACKOFF_MS: parseInt(cleanEnv(process.env.WEBHOOK_RETRY_BACKOFF_MS) || '1000', 10),
+
+  // ============================================
+  // Security
+  // ============================================
+  MAX_TOTAL_EXECUTION_OPS: parseInt(cleanEnv(process.env.MAX_TOTAL_EXECUTION_OPS) || '5000', 10),
+  MAX_REQUEST_BODY_SIZE: cleanEnv(process.env.MAX_REQUEST_BODY_SIZE) || '20mb',
+  MAX_REGEX_LENGTH: parseInt(cleanEnv(process.env.MAX_REGEX_LENGTH) || '100', 10),
+  USE_LUA_QUOTA: cleanEnv(process.env.USE_LUA_QUOTA) !== 'false',
+
+  // ============================================
+  // Hybrid Architecture Settings
+  // ============================================
+  VIP_PRIORITY_THRESHOLD: parseInt(cleanEnv(process.env.VIP_PRIORITY_THRESHOLD) || '100', 10),
+  FREE_CONTEXT_MAX_LIFETIME_MS: parseInt(cleanEnv(process.env.FREE_CONTEXT_MAX_LIFETIME_MS) || '300000', 10),
+  FREE_RESOURCE_BLOCKING: cleanEnv(process.env.FREE_RESOURCE_BLOCKING) !== 'false',
+  FREE_FORCE_SEQUENTIAL: cleanEnv(process.env.FREE_FORCE_SEQUENTIAL) === 'true',
+
+  // ============================================
+  // Flattener Settings
+  // ============================================
+  FREE_FLATTENER_ENABLED: cleanEnv(process.env.FREE_FLATTENER_ENABLED) !== 'false',
+  FLATTENER_URL_CAPTURE_TIMEOUT_MS: parseInt(cleanEnv(process.env.FLATTENER_URL_CAPTURE_TIMEOUT_MS) || '2000', 10),
+  FLATTENER_REDIRECT_TO_MAIN: cleanEnv(process.env.FLATTENER_REDIRECT_TO_MAIN) !== 'false',
+
+  // ============================================
+  // Cancel Settings
+  // ============================================
+  TAB_CLOSE_TIMEOUT_MS: parseInt(cleanEnv(process.env.TAB_CLOSE_TIMEOUT_MS) || '5000', 10),
+  
+  // ============================================
+  // Variable Size
+  // ============================================
+  MAX_VARIABLE_SIZE_KB: parseInt(cleanEnv(process.env.MAX_VARIABLE_SIZE_KB) || '100', 10),
+
+  // ============================================
+  // Schedule Settings (Global Fallbacks)
+  // ============================================
+  MAX_SCHEDULES_FREE: parseInt(cleanEnv(process.env.MAX_SCHEDULES_FREE) || '2', 10),
+  MAX_SCHEDULES_VIP: parseInt(cleanEnv(process.env.MAX_SCHEDULES_VIP) || '10', 10),
+  MAX_REPEAT_LIMIT_FREE: parseInt(cleanEnv(process.env.MAX_REPEAT_LIMIT_FREE) || '100', 10),
+
+} as const;
+
+// ============================================
+// Helper: Get Plan by Level
+// ============================================
+export const getPlanByLevel = (level: number): PlanConfig => {
+  const key = String(level);
+  return config.USER_PLANS[key] || config.USER_PLANS["0"] || {
+    quota: 5,
+    maxTabs: 1,
+    maxSteps: 5,
+    priority: 100,
+    maxSchedules: 2,
+    runLimit: 100
+  };
+};
+
+// ============================================
+// Validation Warnings
+// ============================================
+if (config.API_KEYS_ENABLED && config.API_KEYS.size === 0) {
+  console.warn('[CONFIG] ⚠️ API_KEYS_ENABLED is true but no API_KEYS defined!');
+}
+
+if (config.ADMIN_SECRET === 'admin_secret_change_me') {
+  console.warn('[CONFIG] ⚠️ Using default ADMIN_SECRET! Change it in production.');
+}
+
+// ============================================
+// Type Export
+// ============================================
+export type Config = typeof config;

@@ -1,0 +1,26 @@
+# ───────── Dependencies ─────────
+node_modules/
+
+# ───────── Build output ─────────
+dist/
+*.tsbuildinfo
+
+# ───────── Secrets & env ─────────
+.env
+.env.local
+.env.*.local
+
+# ───────── Runtime data ─────────
+logs/
+profiles/
+*.log
+
+# ───────── Redis bundled binaries (Windows) ─────────
+# Heavy ~48MB Windows binaries — should NOT be in repo.
+# Install Redis from the official source on the target machine instead.
+Redis/
+
+# ───────── Misc ─────────
+.DS_Store
+chromium/
+.env.example.tmp

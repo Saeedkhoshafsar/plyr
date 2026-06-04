@@ -1,0 +1,34 @@
+{
+  "name": "detect-red-circles",
+  "description": "تشخیص خودکار نقاط قرمز در تصاویر (حل کپچای تصویری با بینایی ماشین)",
+  "version": "2.0.0",
+  "inputs": {
+    "imageUrl": {
+      "type": "string",
+      "required": true,
+      "description": "آدرس اینترنتی یا مسیر فایل تصویر"
+    },
+    "preset": {
+      "type": "string",
+      "required": false,
+      "default": "default",
+      "description": "تنظیمات آماده: default | google | digikala | snapfood"
+    },
+    "dataKey": {
+      "type": "string",
+      "required": false,
+      "default": "redCirclePoints",
+      "description": "کلید ذخیره مختصات پیدا شده در حافظه"
+    },
+    "minClusterSize": {
+      "type": "number",
+      "required": false,
+      "description": "حداقل اندازه دایره (پیکسل)"
+    },
+    "config": {
+      "type": "json",
+      "required": false,
+      "description": "تنظیمات دستی پیشرفته (override)"
+    }
+  }
+}
