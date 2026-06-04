@@ -95,6 +95,9 @@ export const config = {
   // ============================================
   PROFILES_DIR: path.resolve(cleanEnv(process.env.PROFILES_DIR) || './profiles'),
   LOGS_DIR: path.resolve(cleanEnv(process.env.LOGS_DIR) || './logs'),
+  UPLOADS_DIR: path.resolve(cleanEnv(process.env.UPLOADS_DIR) || './uploads'),
+  DOWNLOADS_DIR: path.resolve(cleanEnv(process.env.DOWNLOADS_DIR) || './downloads'),
+
   
   // ============================================
   // Chrome

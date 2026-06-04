@@ -464,7 +464,7 @@ async function ensureVipBrowser(context: AutomationContext): Promise<void> {
     });
 
     if (await context.isCancelled()) {
-      await browserContext.close().catch(e => log(`[BROWSER] Error closing on cancel: ${e.message}`));
+      await browserContext.close().catch((e: any) => log(`[BROWSER] Error closing on cancel: ${e.message}`));
       throw new Error('CANCELLED_BY_USER');
     }
 
@@ -522,7 +522,7 @@ async function ensureFreeContext(context: AutomationContext): Promise<void> {
   }
 
   if (await context.isCancelled()) {
-    await browserContext.close().catch(e => log(`[BROWSER] Error closing on cancel: ${e.message}`));
+    await browserContext.close().catch((e: any) => log(`[BROWSER] Error closing on cancel: ${e.message}`));
     throw new Error('CANCELLED_BY_USER');
   }
 

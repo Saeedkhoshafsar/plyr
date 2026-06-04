@@ -196,7 +196,7 @@ export const createUserRoutes = (deps: UserRoutesDeps): Router => {
           key: thisSchedule?.key || null,
           name: scheduleName,
           cron,
-          nextRun: thisSchedule ? new Date(thisSchedule.next).toISOString() : 'pending',
+          nextRun: thisSchedule && thisSchedule.next ? new Date(thisSchedule.next).toISOString() : 'pending',
           runsLimit: plan.runLimit > 0 ? plan.runLimit : 'unlimited'
         },
         currentSchedules: userScheduleCount + 1,
@@ -241,7 +241,7 @@ export const createUserRoutes = (deps: UserRoutesDeps): Router => {
           scheduleId: job.id,
           name,
           cron: job.pattern,
-          nextRun: new Date(job.next).toISOString(),
+          nextRun: job.next ? new Date(job.next).toISOString() : 'pending',
           createdAt: createdAt ? new Date(createdAt).toISOString() : null,
           timezone: job.tz || 'UTC'
         };

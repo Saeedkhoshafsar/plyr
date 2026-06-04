@@ -32,7 +32,7 @@ import { sendWebhook } from './services/webhook.service';
 import { persistJob } from './services/job.service';
 
 // Routes
-import { createAllRoutes } from './routes';
+import { createAllRoutes } from './Routes';
 
 // ============================================
 // EXPRESS SETUP
@@ -317,7 +317,6 @@ const worker = new Worker('automation-jobs', async (job: Job) => {
           return false;
         }
       },
-      redis: connection,
       userPlan,
       quotaManager
     });

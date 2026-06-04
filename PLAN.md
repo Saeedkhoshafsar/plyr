@@ -266,13 +266,14 @@
   5. ساخت `PLAN.md` با آنالیز کامل باگ‌ها ✅
   6. commit و push اولیه‌ی کل پروژه به GitHub ✅
 
-- [ ] **استپ ۲ — رفع ۹ خطای کامپایل TypeScript (دسته A)**
-  1. رفع [A1] حروف بزرگ مسیر import (`./Routes`)
-  2. افزودن کلیدهای گمشده `UPLOADS_DIR`/`DOWNLOADS_DIR` به config [A2]
-  3. هماهنگ‌کردن امضای `runPipeline` با فیلد `redis` [A3]
-  4. ارتقای `tsconfig` به `ES2021`+`lib` برای `WeakRef` [A4]
-  5. رفع `new Date(undefined)` در schedule routes [A5] و `any` ضمنی [A6]
-  6. تأیید build سبز با `npx tsc --noEmit` و `npm run build`
+- [x] **استپ ۲ — رفع ۹ خطای کامپایل TypeScript (دسته A)** ✅ 2026-06-04
+  1. ✅ رفع [A1] حروف بزرگ مسیر import (`./routes` → `./Routes`)
+  2. ✅ افزودن کلیدهای گمشده `UPLOADS_DIR`/`DOWNLOADS_DIR` به config [A2]
+  3. ✅ [A3] فیلد `redis: connection` بلااستفاده بود → از فراخوانی `runPipeline` در `index.ts` حذف شد (داخل `pipeline.ts` اصلاً استفاده نمی‌شد)
+  4. ✅ ارتقای `tsconfig` به `target: ES2021` + `lib: ["ES2021","DOM","DOM.Iterable"]` برای `WeakRef` [A4]
+  5. ✅ رفع `new Date(undefined)` در `user.routes.ts:199,244` با گارد `?` [A5] و `any` ضمنی `(e: any)` در `pipeline.ts:525` [A6]
+  6. ✅ build سبز: `npx tsc --noEmit` → 0 خطا، `npm run build` → خروجی `dist/` تولید شد
+  - ⚠️ **نکته‌ی مهم کشف‌شده حین کار:** افزودن صریح `lib` در tsconfig، DOM پیش‌فرض را حذف کرد و ~۳۰ خطای `Cannot find name 'document/window/HTMLElement'` در `page.evaluate()` ایجاد شد (کد سمت مرورگر Playwright). حل: افزودن `"DOM"` و `"DOM.Iterable"` به آرایه‌ی `lib`.
 
 - [ ] **استپ ۳ — سازگارسازی با Node-base/Linux + مستندات (دسته B + D2)**
   1. اصلاح تشخیص خودکار `CHROME_EXE` برای Linux/Playwright bundled [B1]
