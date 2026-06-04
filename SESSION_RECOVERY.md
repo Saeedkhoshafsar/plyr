@@ -4,7 +4,7 @@
 
 - **Repo:** https://github.com/Saeedkhoshafsar/plyr  (branch: `main`)
 - **پروژه:** `automation-backend` — بک‌اند اتوماسیون مرورگر (Node.js + TypeScript)، رایگان/متن‌باز/**Self-Hosted**.
-- **آخرین به‌روزرسانی این سند:** 2026-06-04 — پس از پایان استپ ۱۸ (حالت Self-Hosted تک‌کاربره `DEPLOYMENT_MODE`) و استپ ۱۹ (اسکریپت نصب تعاملی `install.sh` + نصب تک‌خطی `curl|bash` + HTTPS با Caddy + استقرار Coolify).
+- **آخرین به‌روزرسانی این سند:** 2026-06-04 — پس از پایان استپ ۱۸ (حالت Self-Hosted تک‌کاربره `DEPLOYMENT_MODE`)، استپ ۱۹ (اسکریپت نصب تعاملی `install.sh` + نصب تک‌خطی `curl|bash` + HTTPS با Caddy + استقرار Coolify) و استپ ۲۰ (انتشار خودکار Docker image روی ghcr.io با GitHub Actions + راهنمای `docs/COOLIFY.md` برای روش Docker Image).
 
 ---
 
@@ -96,7 +96,7 @@ PY
 
 **استپ‌های تمام‌شده:** ۱، ۲، ۳، ۴، ۵، ۵.۵، ۶، ۷، ۸، ۹، ۱۰، ۱۱، ۱۲، ۱۳، ۱۴، ۱۵، ۱۶، ۱۷، ۱۸، ۱۹ ✅ _(استپ ۱۶ زودتر از ۱۲ انجام شد چون استپ ۱۲ به آن وابسته بود — طبق AGENT_RULE 3)_
 
-**استپ بعدی برای شروع:** **همهٔ استپ‌های برنامه‌ریزی‌شده (۱–۱۹) و همهٔ دسته‌های باگ A–H تمام شده‌اند.** فقط backlog با اولویت پایین باقی است: **[E4]** متنوع‌سازی Triggerها (الان `/run` + cron) و **[E5]** Marketplace/اشتراک workflow. اگر صاحب پروژه قابلیت جدیدی بخواهد، به‌صورت استپ جدید اضافه می‌شود. ⚠️ همان قرارداد CRLF برای `src/**` (+`package.json` ریشه + `.env.example`) و LF برای `tests/**`/`docs/**`/`public/**`/`extension/**`/`n8n-node/**`/`install.sh` رعایت شود (ویرایش `src/**` با اسکریپت پایتونِ binary-mode).
+**استپ بعدی برای شروع:** **همهٔ استپ‌های برنامه‌ریزی‌شده (۱–۲۰) و همهٔ دسته‌های باگ A–H تمام شده‌اند.** فقط backlog با اولویت پایین باقی است: **[E4]** متنوع‌سازی Triggerها (الان `/run` + cron) و **[E5]** Marketplace/اشتراک workflow. اگر صاحب پروژه قابلیت جدیدی بخواهد، به‌صورت استپ جدید اضافه می‌شود. ⚠️ همان قرارداد CRLF برای `src/**` (+`package.json` ریشه + `.env.example`) و LF برای `tests/**`/`docs/**`/`public/**`/`extension/**`/`n8n-node/**`/`install.sh`/`.github/**` رعایت شود (ویرایش `src/**` با اسکریپت پایتونِ binary-mode).
 
 **نکته‌ی محیطی استپ ۱۲ (Live Browser View):** مرورگر سروری در این sandbox حتی با نصب `redis-server` و libهای `libnss3/libnspr4/...` بالا نیامد (`GlobalBrowser is not available`) چون deps کامل Playwright موجود نیست — محدودیت محیطی، نه باگ کد. با این حال `GlobalBrowser.initialize` خطا را می‌بلعد و `app.listen` اجرا می‌شود، پس مسیر WS و auth کامل تست شد (روی سوکت معتبرِ `/browser/ws` پیام `error: browser_unavailable` به‌درستی emit شد). **تست استریم واقعیِ فریم‌ها باید روی Docker/ماشین کاربر انجام شود.** معماری استپ ۱۲: `/browser/ws` یک listenerِ `upgrade` مستقل دارد که فقط مسیر خودش را می‌گیرد و کنار `/live/ws` همزیست است (هر دو path-based، رگرسیون گرفته شد).
 
@@ -136,8 +136,13 @@ PY
   - **Coolify:** `docker-compose.coolify.yml` نسخهٔ ایزولهٔ compose — بدون `ports:` host (فقط `expose: 3000`؛ Traefik خود Coolify دامنه/TLS را هندل می‌کند)، با named volumes (redis-data/app-logs/app-profiles/app-uploads/app-downloads) برای persistence در redeploy، و env با پیش‌فرض `DEPLOYMENT_MODE=single`/`API_TOKEN=${API_TOKEN:-}`.
   - **خروجی نهایی:** `print_server_summary` کادر آدرس پنل (`PANEL_URL`) + `/health` + `API_TOKEN` (متغیر سراسری `TOKEN_OUT`) را چاپ می‌کند.
   - پرچم‌ها: `--server-node`/`--server-docker`/`--coolify`/`--client`/`--client-n8n`/`--domain <host>`/`--port <n>`/`-y|--yes`/`-h|--help`. اعتبارسنجی: `bash -n` سبز + **shellcheck (warning) تمیز** + تست منو/`--help`/`--coolify`. مستندسازی کامل در README. ⚠️ یادآوری CRLF: این فایل‌ها همگی LF هستند؛ هنگام ویرایش با ابزارهای CRLF-aware دقت شود.
+- استپ ۲۰: **انتشار خودکار Docker image روی ghcr.io + راهنمای Coolify (Docker Image)** _(۲۰۲۶-۰۶-۰۴)_. دو فایل LF: `.github/workflows/docker-publish.yml` و `docs/COOLIFY.md`.
+  - **GitHub Actions:** workflow «Build & Publish Docker image» با trigger روی `push` به `main` + tagهای `v*` + `workflow_dispatch`. مراحل: checkout → `docker/setup-buildx-action@v3` → `docker/login-action@v3` به `ghcr.io` با `secrets.GITHUB_TOKEN` (permission `packages: write`) → محاسبهٔ نام image با `tr '[:upper:]' '[:lower:]'` (الزام lowercase در ghcr) → `docker/metadata-action@v5` (تگ‌های `latest` روی default branch + `sha-<short>` + `vX.Y.Z` روی tag) → `docker/build-push-action@v6` (context `.`, file `./Dockerfile`, push، cache `type=gha mode=max`) → نوشتن خلاصه در `$GITHUB_STEP_SUMMARY`. image نهایی: `ghcr.io/saeedkhoshafsar/plyr:latest`.
+  - **علت ساخت:** کاربر روی Coolify نوع منبع **Docker Image** را انتخاب کرده بود ولی آدرس سورس گیت‌هاب (`github.com/...`) را به‌عنوان image داده بود → Coolify image پیدا نکرد و **Exited** شد؛ همچنین `Ports Exposes` روی `80` بود نه `3000`. راه‌حل: ساخت image واقعی روی رجیستری + راهنمای درست.
+  - **`docs/COOLIFY.md`:** راهنمای گام‌به‌گام روش Docker Image — (۰) ساخت و Public کردن package از Actions/ghcr، (۱) حذف منبع اشتباه از Danger Zone، (۲) ساخت **Redis جدا** (New→Database→Redis؛ چون Docker Image تنها Redis ندارد)، (۳) ساخت منبع Docker Image با `ghcr.io/saeedkhoshafsar/plyr:latest`، (۴) **Ports Exposes=3000** (نه 80)، (۵) Env: `DEPLOYMENT_MODE=single`/`NODE_ENV=production`/`PORT=3000`/`REDIS_URL=redis://<svc>:6379`/`API_TOKEN=`، (۶) دامنه + Cloudflare (A record + DNS only/پروکسی نارنجی خاموش)، (۷) Deploy. + جدول مقایسهٔ سه روش (Docker Image vs Compose vs Dockerfile) و یادآوری: اگر Compose با `docker-compose.coolify.yml` انتخاب شود، Redis خودکار می‌آید و نیازی به Redis جدا/`REDIS_URL` نیست.
+  - README: بخش Coolify به دو راه (Compose آسان / Docker Image با ghcr.io) گسترش یافت + لینک به `docs/COOLIFY.md`.
 
-**باگ‌های ثبت‌شده که هنوز باز/بعداً:** بخش «دسته‌ها» در `PLAN.md` را ببین. (دسته‌های A–H همگی در استپ‌های ۱–۱۹ پوشش داده شدند؛ فقط backlog اولویت‌پایین [E4] Triggerهای متنوع و [E5] Marketplace باز است.)
+**باگ‌های ثبت‌شده که هنوز باز/بعداً:** بخش «دسته‌ها» در `PLAN.md` را ببین. (دسته‌های A–H همگی در استپ‌های ۱–۲۰ پوشش داده شدند؛ فقط backlog اولویت‌پایین [E4] Triggerهای متنوع و [E5] Marketplace باز است.)
 
 ---
 

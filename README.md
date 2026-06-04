@@ -102,7 +102,9 @@ curl -fsSL https://raw.githubusercontent.com/Saeedkhoshafsar/plyr/main/install.s
 
 #### 🐳 استقرار روی Coolify (ایزوله)
 
-برای استقرار هر پروژه در فضای ایزوله، از `docker-compose.coolify.yml` استفاده کنید:
+دو راه دارید:
+
+**راه آسان — Docker Compose (همه‌چیز با هم، شامل Redis):**
 
 1. Coolify → **+ New** → **Docker Compose** و ریپو را وصل کنید.
 2. Compose file: `docker-compose.coolify.yml`
@@ -110,7 +112,21 @@ curl -fsSL https://raw.githubusercontent.com/Saeedkhoshafsar/plyr/main/install.s
 4. متغیرهای محیطی: `DEPLOYMENT_MODE=single`، `API_TOKEN=tok_...` (یا خالی برای تولید خودکار)، `NODE_ENV=production`.
 5. Deploy و سپس ورود به `https://your-domain/` با همان `API_TOKEN`.
 
-(در این مسیر هم رکورد A را روی Cloudflare بسازید و پروکسی نارنجی را خاموش کنید.)
+**راه Docker Image (image از قبل ساخته‌شده روی `ghcr.io`):**
+
+اگر با نوع منبع **Docker Image** راحت‌ترید، این پروژه یک GitHub Actions
+(`.github/workflows/docker-publish.yml`) دارد که با هر push روی `main` خودکار image
+را می‌سازد و روی GitHub Container Registry منتشر می‌کند:
+
+```
+ghcr.io/saeedkhoshafsar/plyr:latest
+```
+
+سپس در Coolify یک منبع **Docker Image** با همین آدرس بسازید، یک **Redis جدا** اضافه
+کنید و `REDIS_URL` آن را در Environment Variables بگذارید. راهنمای کامل گام‌به‌گام:
+👉 **[`docs/COOLIFY.md`](docs/COOLIFY.md)**
+
+(در هر دو مسیر، رکورد A را روی Cloudflare بسازید و پروکسی نارنجی را خاموش کنید — DNS only.)
 
 ### نصب دستی (در صورت تمایل)
 

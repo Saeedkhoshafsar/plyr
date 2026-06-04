@@ -436,6 +436,14 @@
   - ✅ پرچم‌های غیرتعاملی: `--server-node`/`--server-docker`/`--coolify`/`--client`/`--client-n8n`/`--domain <host>`/`--port <n>`/`-y|--yes`/`-h|--help`. اعتبارسنجی: `bash -n` سبز، **shellcheck (warning) تمیز**. مستندسازی کامل در README.
   - **زبان/قرارداد:** `install.sh`, `docker-compose.coolify.yml`, `Caddyfile.example` همه با **LF**.
 
+- [x] **استپ ۲۰ — انتشار خودکار Docker image روی ghcr.io + راهنمای Coolify (Docker Image) (دسته H3)** ✅ 2026-06-04
+  - ✅ **GitHub Actions** `.github/workflows/docker-publish.yml`: با هر push روی `main` (و tagهای `v*` و `workflow_dispatch`)، image را از روی `Dockerfile` با buildx می‌سازد و روی **`ghcr.io/<owner>/<repo>`** منتشر می‌کند. تگ‌ها: `latest` (روی main)، `sha-<short>`، و `vX.Y.Z` (روی git tag). از `GITHUB_TOKEN` خودکار استفاده می‌کند (بدون secret دستی)؛ نام image با `tr` به lowercase تبدیل می‌شود (الزام ghcr)؛ cache با `type=gha`. خلاصهٔ image در `$GITHUB_STEP_SUMMARY`.
+  - ✅ **راهنمای کامل `docs/COOLIFY.md`** برای استقرار با نوع منبع **Docker Image**: چرا اول باید image ساخته شود، عمومی‌کردن package، حذف منبع اشتباه قبلی، ساخت **Redis جدا** (چون Docker Image تنها Redis ندارد)، تنظیم **Ports Exposes=3000** (نه 80)، متغیرهای محیطی (`DEPLOYMENT_MODE`/`NODE_ENV`/`PORT`/`REDIS_URL`/`API_TOKEN`)، دامنه + Cloudflare (A record + DNS only)، Deploy، و جدول مقایسهٔ سه روش (Docker Image / Compose / Dockerfile).
+  - ✅ README بخش Coolify گسترش یافت: دو راه (Docker Compose آسان، و Docker Image با ghcr.io) + لینک به `docs/COOLIFY.md`.
+  - **زبان/قرارداد:** `.github/workflows/*.yml` و `docs/COOLIFY.md` با **LF**.
+  - **علت:** کاربر با نوع منبع **Docker Image** در Coolify راحت بود؛ این استپ زیرساخت لازمِ آن (image منتشرشده + راهنما) را فراهم می‌کند.
+  - ⚠️ **نکتهٔ push:** توکن این محیط scope `workflow` ندارد و GitHub اجازهٔ push فایل `.github/workflows/*.yml` را نمی‌دهد؛ فایل workflow روی دیسک ساخته شده ولی باید **دستی توسط صاحب ریپو** اضافه شود (Actions → New workflow → کپی محتوا → Commit). بقیهٔ فایل‌ها (`docs/COOLIFY.md`/README/PLAN/SESSION) push شده‌اند. روش `docs/COOLIFY.md` این مورد را توضیح می‌دهد.
+
 ---
 
 ## 📝 یادداشت‌ها
