@@ -29,16 +29,36 @@ Backend اتوماسیون مرورگر مبتنی بر **Node.js + TypeScript**
 ## پیش‌نیازها
 
 - Node.js ≥ 20
-- Redis ≥ 6 (روی Linux از پکیج رسمی نصب شود؛ باینری ویندوزی داخل ریپو نیست)
-- مرورگر Chromium (از طریق Playwright نصب می‌شود)
+- Redis ≥ 6 (روی Linux از پکیج رسمی نصب شود؛ باینری ویندوزی داخل ریپو **نیست**)
+- مرورگر Chromium (از طریق Playwright نصب می‌شود — به‌صورت bundled، نیازی به Chrome سیستمی نیست)
+
+### نصب Redis روی Linux
+
+```bash
+# Debian / Ubuntu
+sudo apt-get update && sudo apt-get install -y redis-server
+sudo systemctl enable --now redis-server
+
+# یا با Docker
+docker run -d --name redis -p 6379:6379 redis:7-alpine
+```
+
+سپس مقدار `REDIS_URL` در `.env` را تنظیم کنید (پیش‌فرض: `redis://127.0.0.1:6379`).
 
 ## نصب
 
 ```bash
-npm install
-npx playwright install chromium     # نصب مرورگر
+npm install                          # postinstall به‌صورت خودکار Chromium را دانلود می‌کند (در صورت خطا، non-fatal)
+# اگر می‌خواهید دانلود مرورگر حین نصب انجام نشود:
+SKIP_BROWSER_INSTALL=1 npm install
+# و بعداً به‌صورت دستی:
+npm run install:browser              # = playwright install chromium
+npm run install:browser:deps        # نصب Chromium + وابستگی‌های سیستمی (نیازمند sudo)
+
 cp .env.example .env                 # سپس مقادیر را ویرایش کنید
 ```
+
+> 🧩 **مرورگر:** به‌صورت پیش‌فرض از Chromium بسته‌بندی‌شده‌ی Playwright استفاده می‌شود. اگر می‌خواهید Chrome/Chromium نصب‌شده‌ی سیستم استفاده شود، مسیر آن را در `CHROME_EXE` بگذارید (در غیر این‌صورت خالی بماند).
 
 ## اجرا
 
@@ -66,6 +86,13 @@ pm2 start ecosystem.config.js
 | `ADMIN_SECRET` | — | رمز پنل ادمین |
 | `MAX_CONCURRENT` | `20` | حداکثر اجرای همزمان |
 | `DEFAULT_HEADLESS` | `true` | اجرای بدون نمایش مرورگر |
+| `CHROME_EXE` | _(خالی)_ | اختیاری؛ مسیر Chrome سیستمی. خالی = Chromium بسته‌بندی‌شده‌ی Playwright |
+
+---
+
+## مستندات API
+
+فهرست کامل endpointها، احراز هویت و نمونه‌ها در [`docs/API.md`](./docs/API.md).
 
 ---
 

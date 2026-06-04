@@ -275,12 +275,13 @@
   6. ✅ build سبز: `npx tsc --noEmit` → 0 خطا، `npm run build` → خروجی `dist/` تولید شد
   - ⚠️ **نکته‌ی مهم کشف‌شده حین کار:** افزودن صریح `lib` در tsconfig، DOM پیش‌فرض را حذف کرد و ~۳۰ خطای `Cannot find name 'document/window/HTMLElement'` در `page.evaluate()` ایجاد شد (کد سمت مرورگر Playwright). حل: افزودن `"DOM"` و `"DOM.Iterable"` به آرایه‌ی `lib`.
 
-- [ ] **استپ ۳ — سازگارسازی با Node-base/Linux + مستندات (دسته B + D2)**
-  1. اصلاح تشخیص خودکار `CHROME_EXE` برای Linux/Playwright bundled [B1]
-  2. امن‌کردن `postinstall` (اختیاری/قابل skip) [B3]
-  3. مستندسازی نصب Redis روی Linux + حذف وابستگی به `Redis/` ویندوزی [B2]
-  4. نوشتن `README.md` کامل (نصب، اجرا، متغیرها)
-  5. نوشتن `docs/API.md` (همه‌ی endpointها)
+- [x] **استپ ۳ — سازگارسازی با Node-base/Linux + مستندات (دسته B + D2)** ✅ 2026-06-04
+  1. ✅ [B1] `CHROME_EXE` خالی‌by‌default → استفاده از Chromium بسته‌بندی‌شده‌ی Playwright (Node-base). مسیر سیستمی فقط در صورت ست‌بودن env اعمال می‌شود؛ به هر دو محل launch (`GlobalBrowser.ts`, `pipeline.ts`) به‌صورت اختیاری `executablePath` تزریق شد. (کشف: قبلاً `CHROME_EXE` تعریف ولی هیچ‌جا استفاده نمی‌شد و پیش‌فرض ویندوزی گمراه‌کننده بود.)
+  2. ✅ [B3] `postinstall` امن/قابل‌skip شد: با `SKIP_BROWSER_INSTALL=1` رد می‌شود و خطای دانلود مرورگر non-fatal است؛ اسکریپت‌های صریح `install:browser` و `install:browser:deps` اضافه شد.
+  3. ✅ [B2] هیچ ارجاع Windows-Redis در سورس نبود؛ `Redis/` از قبل gitignore شده و `REDIS_URL` env-driven است. راهنمای نصب Redis روی Linux (apt + Docker) به README اضافه شد.
+  4. ✅ README کامل شد (نصب، Redis، مرورگر bundled، skip browser، متغیرها + ردیف `CHROME_EXE`، لینک API).
+  5. ✅ `docs/API.md` نوشته شد (همه‌ی endpointهای health/user/admin + احراز هویت `x-api-key`/`x-admin-token` + کدهای وضعیت).
+  - ✅ تأیید: `npx tsc --noEmit` → 0 خطا؛ گارد postinstall تست شد.
 
 - [ ] **استپ ۴ — استقرار Node-base: Docker + Compose (دسته D4/D5)**
   1. نوشتن `Dockerfile` چندمرحله‌ای (build + runtime با Playwright)

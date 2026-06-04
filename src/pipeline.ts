@@ -455,6 +455,8 @@ async function ensureVipBrowser(context: AutomationContext): Promise<void> {
       headless,
       viewport: { width: 1280, height: 720 },
       timeout: config.BROWSER_LAUNCH_TIMEOUT_MS,
+      // Use a system Chrome only if CHROME_EXE is set; otherwise Playwright bundled Chromium.
+      ...(config.CHROME_EXE ? { executablePath: config.CHROME_EXE } : {}),
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',

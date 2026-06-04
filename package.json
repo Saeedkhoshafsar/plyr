@@ -9,7 +9,9 @@
     "start": "node dist/index.js",
     "clean": "rimraf dist",
     "prestart": "npm run build",
-    "postinstall": "playwright install --with-deps chromium"
+    "install:browser": "playwright install chromium",
+    "install:browser:deps": "playwright install --with-deps chromium",
+    "postinstall": "node -e \"if(process.env.SKIP_BROWSER_INSTALL){process.exit(0)}\" && (playwright install chromium || echo \"[postinstall] Skipped Chromium download (run npm run install:browser manually).\")"
   },
   "keywords": [
     "playwright",

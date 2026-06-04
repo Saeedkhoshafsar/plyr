@@ -102,12 +102,12 @@ export const config = {
   // ============================================
   // Chrome
   // ============================================
+  // CHROME_EXE: optional. Empty => use Playwright bundled Chromium (recommended for Node-base/Linux).
+  // Set CHROME_EXE only to force a system-installed Chrome/Chromium binary.
   CHROME_EXE: (() => {
     const env = cleanEnv(process.env.CHROME_EXE);
     if (env && env !== '') return env;
-    return os.platform() === 'win32' 
-      ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
-      : '/usr/bin/google-chrome';
+    return ''; // default: let Playwright resolve its bundled Chromium
   })(),
 
   // ============================================

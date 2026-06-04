@@ -47,6 +47,8 @@ export class GlobalBrowser {
       this.instance = await chromium.launch({
         headless: config.DEFAULT_HEADLESS,
         timeout: config.BROWSER_LAUNCH_TIMEOUT_MS,
+        // Use a system Chrome only if CHROME_EXE is set; otherwise Playwright bundled Chromium.
+        ...(config.CHROME_EXE ? { executablePath: config.CHROME_EXE } : {}),
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
