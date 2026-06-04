@@ -25,6 +25,10 @@
     if (window.LiveView && typeof window.LiveView.stop === 'function') {
       try { window.LiveView.stop(); } catch (e) { /* noop */ }
     }
+    // close the interactive Live Browser View socket when leaving (Step 12)
+    if (window.BrowserView && typeof window.BrowserView.stop === 'function') {
+      try { window.BrowserView.stop(); } catch (e) { /* noop */ }
+    }
   }
 
   function t(k) { return U().t(k); }
@@ -733,6 +737,12 @@
       case 'run': return renderRun(root);
       case 'editor': return renderEditor(root);
       case 'jobs': return renderJobs(root);
+      case 'browser':
+        if (window.BrowserView && typeof window.BrowserView.render === 'function') {
+          return window.BrowserView.render(root);
+        }
+        root.innerHTML = '<div class="placeholder">🚧 ' + t('common.comingSoon') + '</div>';
+        return;
       case 'live':
         if (window.LiveView && typeof window.LiveView.render === 'function') {
           return window.LiveView.render(root);
@@ -747,5 +757,18 @@
     }
   }
 
-  window.Views = { render: render, stopAll: stopAll };
+  // Step 12: allow the Live Browser View (element picker) to inject a
+  // step into the linear flow builder. The step shows up next time the
+  // Run page renders (and immediately if it is the active view).
+  function addStep(step) {
+    if (!step || typeof step !== 'object') return;
+    builderSteps.push(step);
+    var list = document.getElementById('steps-list');
+    if (list && list.parentNode) {
+      var root = list.closest('.view') || document.getElementById('app-content') || document;
+      try { renderStepsList(root); } catch (e) { /* not on run page */ }
+    }
+  }
+
+  window.Views = { render: render, stopAll: stopAll, addStep: addStep };
 })();

@@ -1,0 +1,177 @@
+'use strict';
+
+import type { Server as HttpServer, IncomingMessage } from 'http';
+import type { Duplex } from 'stream';
+import { WebSocketServer, WebSocket, type RawData } from 'ws';
+import { URL } from 'url';
+
+import { LiveBrowserManager, LiveBrowserSession } from './LiveBrowser';
+import { authorizeLive } from './LiveServer';
+
+// ════════════════════════════════════════════════════════════════
+// BrowserStreamServer (Step 12) — WebSocket endpoint /browser/ws.
+// ----------------------------------------------------------------
+// Each connection owns one interactive LiveBrowserSession. Outbound:
+// JSON control events + binary-ish JSON screencast frames (base64).
+// Inbound: JSON commands { t: 'navigate'|'click'|'type'|'key'|
+// 'scroll'|'picker', ... } which are replayed on the server browser.
+//
+// Auth re-uses authorizeLive (same rules as the live event channel):
+// env/admin key => full access; user key => must own the userId.
+// This server does NOT register its own 'upgrade' listener; index.ts
+// multiplexes /live/ws and /browser/ws through one handler and calls
+// handleUpgrade() here. That avoids two listeners both destroying
+// sockets they don't recognise.
+// ════════════════════════════════════════════════════════════════
+
+export class BrowserStreamServer {
+  private wss: WebSocketServer;
+  constructor(private readonly manager: LiveBrowserManager) {
+    this.wss = new WebSocketServer({ noServer: true });
+  }
+
+  // Does this upgrade request belong to us?
+  matches(pathname: string): boolean {
+    return pathname === '/browser/ws';
+  }
+
+  // Register an 'upgrade' listener that ONLY handles /browser/ws and
+  // ignores (returns without destroying) any other path, so it can
+  // coexist with LiveServer's own upgrade listener on the same server.
+  attach(server: HttpServer): void {
+    server.on('upgrade', (req: IncomingMessage, socket: Duplex, head: Buffer) => {
+      let pathname = '';
+      try { pathname = new URL(req.url || '', 'http://localhost').pathname; }
+      catch { return; }
+      if (!this.matches(pathname)) return; // not ours; LiveServer may handle it
+      this.handleUpgrade(req, socket, head);
+    });
+  }
+
+  // Called by the multiplexed upgrade handler in index.ts.
+  handleUpgrade(req: IncomingMessage, socket: Duplex, head: Buffer): void {
+    let parsed: URL;
+    try {
+      parsed = new URL(req.url || '', 'http://localhost');
+    } catch {
+      socket.destroy();
+      return;
+    }
+    const userId = parsed.searchParams.get('userId') || '';
+    const apiKey = parsed.searchParams.get('api_key')
+      || (req.headers['x-api-key'] as string | undefined);
+
+    if (!userId) {
+      socket.write('HTTP/1.1 400 Bad Request\r\n\r\n');
+      socket.destroy();
+      return;
+    }
+
+    authorizeLive(apiKey, userId).then((auth) => {
+      if (!auth.ok) {
+        socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
+        socket.destroy();
+        return;
+      }
+      this.wss.handleUpgrade(req, socket, head, (ws) => {
+        void this.onConnection(ws, userId);
+      });
+    }).catch(() => {
+      socket.write('HTTP/1.1 500 Internal Server Error\r\n\r\n');
+      socket.destroy();
+    });
+  }
+
+  private send(ws: WebSocket, type: string, data: Record<string, unknown>): void {
+    if (ws.readyState === WebSocket.OPEN) {
+      try { ws.send(JSON.stringify({ t: type, ...data })); } catch { /* ignore */ }
+    }
+  }
+
+  private async onConnection(ws: WebSocket, userId: string): Promise<void> {
+    let session: LiveBrowserSession;
+    try {
+      session = this.manager.create(userId);
+    } catch (e) {
+      this.send(ws, 'error', { message: (e as Error).message });
+      try { ws.close(1011, 'no_session'); } catch { /* ignore */ }
+      return;
+    }
+
+    // Wire session output to this socket.
+    session.setSinks(
+      (frame) => this.send(ws, 'frame', { ...frame }),
+      (type, data) => this.send(ws, type, data)
+    );
+
+    // Heartbeat.
+    const sock = ws as WebSocket & { __alive?: boolean };
+    sock.__alive = true;
+    ws.on('pong', () => { sock.__alive = true; });
+
+    const cleanup = async () => {
+      await this.manager.destroy(session.id).catch(() => {});
+    };
+    ws.on('close', () => { void cleanup(); });
+    ws.on('error', () => { /* close handler cleans up */ });
+
+    // Start the browser session (creates context/page + screencast).
+    try {
+      await session.start();
+    } catch (e) {
+      this.send(ws, 'error', { message: 'browser_unavailable: ' + (e as Error).message });
+      await cleanup();
+      try { ws.close(1011, 'browser_unavailable'); } catch { /* ignore */ }
+      return;
+    }
+
+    ws.on('message', (raw: RawData) => {
+      let msg: { t?: string; [k: string]: unknown };
+      try { msg = JSON.parse(String(raw)); } catch { return; }
+      if (!msg || typeof msg.t !== 'string') return;
+      void this.handleCommand(session, msg);
+    });
+  }
+
+  private async handleCommand(
+    session: LiveBrowserSession,
+    msg: { t?: string; [k: string]: unknown }
+  ): Promise<void> {
+    if (session.isClosed()) return;
+    const num = (v: unknown, d = 0): number => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : d;
+    };
+    switch (msg.t) {
+      case 'navigate':
+        await session.navigate(String(msg.url || ''));
+        break;
+      case 'click':
+        await session.click(num(msg.x), num(msg.y));
+        break;
+      case 'scroll':
+        await session.scroll(num(msg.x), num(msg.y), num(msg.dy));
+        break;
+      case 'type':
+        await session.type(String(msg.text || ''));
+        break;
+      case 'key':
+        await session.key(String(msg.key || ''));
+        break;
+      case 'picker':
+        await session.setPicker(!!msg.on);
+        break;
+      default:
+        // unknown command: ignore
+        break;
+    }
+  }
+
+  async shutdown(): Promise<void> {
+    try {
+      this.wss.clients.forEach((ws) => { try { ws.close(1001, 'shutdown'); } catch { /* ignore */ } });
+      await new Promise<void>((resolve) => this.wss.close(() => resolve()));
+    } catch { /* ignore */ }
+    await this.manager.shutdown().catch(() => {});
+  }
+}

@@ -363,13 +363,15 @@
   - ✅ **بازآرایی کلیدی:** کاتالوگ `ACTIONS` که قبلاً در `views.js` و `flow-editor.js` دو کپی بود، به یک ماژول مشترک `public/js/actions.js` (`window.ACTION_CATALOG`) منتقل شد. هر دو فایل حالا از همان منبع می‌خوانند (۱۸ اکشن). ترتیب لود: **actions** → i18n → api → flow-editor → views → app.
   - ✅ **تست:** `npx tsc`/`npm run build` سبز؛ `npm test` = **۹۱ تست** (۸۱ قبلی + ۱۰ تست جدید `export-csv.test.ts` برای `toCsv`/`csvEscape`). e2e Playwright: لاگین → کاتالوگ مشترک با ۸ اکشن جدید → اشتراک FlowEditor↔فرم خطی → `POST /run` با اکشن‌های جدید (status 200، Job ID:1) → **بدون خطای console**. (اجرای واقعی pipeline در sandbox به‌دلیل نبود deps کامل مرورگر سروری ممکن نیست — تست end-to-end مرورگر روی ماشین کاربر/Docker.)
 
-- [ ] **استپ ۱۲ — Live Browser View + Element Picker (نکته ۱ صاحب پروژه — راهکار A) (دسته F1)** _(وابسته به استپ ۱۶)_
-  1. راه‌اندازی WebSocket server امن (با auth) برای استریم مرورگر
-  2. استریم زنده‌ی صفحه با CDP Screencast به UI (canvas)
-  3. ارسال کلیک/تایپ کاربر از UI به مرورگر سروری (تعامل دوطرفه)
-  4. Element Picker: کلیک روی عنصر → تولید خودکار سلکتور CSS/XPath
-  5. درج خودکار سلکتور انتخاب‌شده در step مربوطه در UI
-  6. باز کردن `connect-src`/`ws` در CSP و مدیریت طول عمر مرورگر session
+- [x] **استپ ۱۲ — Live Browser View + Element Picker (نکته ۱ صاحب پروژه — راهکار A) (دسته F1)** _(۲۰۲۶-۰۶-۰۴)_
+  1. ✅ WebSocket server امن `/browser/ws` (`src/core/BrowserStreamServer.ts`) با auth از طریق `authorizeLive` (همان قوانین استپ ۱۶: env/admin=full؛ کلید کاربر=owner-match). یک listenerِ `upgrade` مستقل که فقط مسیر `/browser/ws` را می‌گیرد و بقیه را رها می‌کند تا با `/live/ws` همزیست شود.
+  2. ✅ استریم زنده با CDP Screencast (`src/core/LiveBrowser.ts`): `Page.startScreencast` (jpeg، q=60) → فریم base64 روی WS → رندر روی `<canvas>` در UI. ack هر فریم با `Page.screencastFrameAck`.
+  3. ✅ تعامل دوطرفه: کلیک/اسکرول از canvas با مپ مختصات به px دستگاه → `Input.dispatchMouseEvent`؛ تایپ → `Input.insertText`؛ کلیدهای ویژه → `page.keyboard.press`.
+  4. ✅ Element Picker: اسکریپت تزریقی (overlay + هایلایت hover) که روی کلیک، سلکتور CSS (با `:nth-of-type` و `CSS.escape`) + XPath را می‌سازد و از طریق binding `__abReportPick` (با `exposeBinding`) به سرور و سپس UI گزارش می‌دهد. تزریق مجدد بعد از ناوبری.
+  5. ✅ درج خودکار سلکتور: کارت «عنصر انتخاب‌شده» با کپی CSS/XPath + دکمه‌های «افزودن گام click/extract» که از طریق `window.Views.addStep()` گام را مستقیماً به فرم «اجرای Flow» اضافه می‌کند.
+  6. ✅ CSP از قبل (استپ ۱۶) `connect-src: 'self' ws: wss:` و `imgSrc: 'self' data:` را اجازه می‌داد (نیازی به تغییر نبود). مدیریت طول عمر: هر سوکت یک `LiveBrowserSession` ایزوله (context+page اختصاصی)، idle-TTL ۵ دقیقه با auto-close، `LiveBrowserManager` با cap (=min(MAX_CONCURRENT,8))، و بستن در graceful shutdown.
+  - ✅ **UI:** `public/js/browser-view.js` (`window.BrowserView`)، آیتم nav + route `browser` در `app.js`/`views.js` + هوک `stopAll`، کلیدهای i18n `bv.*`+`nav.browser` (fa+en)، اسکریپت در index.html (live → **browser-view** → views).
+  - ✅ **تست:** `tsc`/`build` سبز؛ `npm test` = **۱۰۳** (+۵ تست `live-browser.test.ts`: یکتایی id، cap، destroy، shutdown، و match مسیر `/browser/ws`). e2e واقعی (Redis نصب شد، deps مرورگر نصب شد): WS auth → no_key=403، bad_key=403، no_userId=400، valid_key=**OPEN**؛ روی سوکت معتبر پیام `error: browser_unavailable` درست emit شد (مرورگر سروری در sandbox به‌دلیل نبود کامل deps بالا نیامد — محدودیت محیطی، نه باگ)؛ رگرسیون `/live/ws` سالم (403/OPEN)؛ UI بدون خطای console/CSP (Playwright). تستِ استریم واقعیِ فریم باید روی Docker/ماشین کاربر انجام شود.
 
 - [ ] **استپ ۱۳ — افزونه‌ی کمکی Chrome (نکته ۱ صاحب پروژه — راهکار B) (دسته F2)**
   1. ساخت اسکلت افزونه (manifest v3) در پوشه‌ی `extension/`

@@ -25,6 +25,7 @@ Backend اتوماسیون مرورگر مبتنی بر **Node.js + TypeScript**
 - **Hybrid Browser:** کاربران VIP مرورگر persistent اختصاصی، کاربران Free مرورگر مشترک با context ایزوله.
 - **Flow Engine:** پشتیبانی از `if/else`, `while`, `try/catch/finally`, `switch`, متغیر و ماژول افزونه‌ای.
 - **ادیتور Flow بصری (node-based):** ساخت جریان به‌صورت گراف نودها (الهام از Automa) — هر اکشن یک نود، اتصال بصری نودها، drag-and-drop، pan/zoom، ذخیره/بارگذاری در localStorage و اجرای مستقیم. تبدیل دوطرفه با همان فرمت `steps` بک‌اند. علاوه بر فرم خطی ساده.
+- **نمایش زندهٔ مرورگر + Element Picker:** مرورگر سروری را زنده داخل داشبورد ببینید (CDP Screencast روی WebSocket `/browser/ws`)، روی صفحه کلیک/تایپ/اسکرول کنید (تعامل دوطرفه با `Input.*`)، و با ابزار «انتخاب عنصر» سلکتور CSS/XPath را خودکار بسازید و با یک کلیک به‌صورت گام `click`/`extract` به فرم اجرا اضافه کنید. هر نشست یک context ایزوله با TTL بی‌کاری دارد.
 - **Schedule:** زمان‌بندی cron با BullMQ repeatable jobs.
 - **امنیت:** API Key، Admin Secret، Rate Limit، محافظت SSRF، Path-traversal guard.
 

@@ -34,6 +34,8 @@ import { persistJob } from './services/job.service';
 // Step 16: Live Channel (WebSocket + SSE) live job events.
 import { LiveBus, JobLivePublisher } from './core/LiveBus';
 import { LiveServer, authorizeLive } from './core/LiveServer';
+import { LiveBrowserManager } from './core/LiveBrowser';
+import { BrowserStreamServer } from './core/BrowserStreamServer';
 
 // Routes
 import { createAllRoutes } from './Routes';
@@ -122,6 +124,9 @@ const liveBus = new LiveBus(connection);
 // LiveServer (WebSocket fan-out) is created lazily in startServer once the
 // HTTP server exists, so it can attach to the 'upgrade' event.
 let liveServer: LiveServer | null = null;
+// Step 12: interactive Live Browser View (CDP screencast + input + element picker).
+const liveBrowserManager = new LiveBrowserManager(config.MAX_CONCURRENT > 0 ? Math.min(config.MAX_CONCURRENT, 8) : 8);
+let browserStreamServer: BrowserStreamServer | null = null;
 
 // ============================================
 // LUA SCRIPTS
@@ -643,6 +648,10 @@ const shutdown = async (signal: string) => {
       await manager.shutdown();
     }
 
+    console.log('[SHUTDOWN] Closing Live Browser sessions...');
+    if (browserStreamServer) await browserStreamServer.shutdown();
+    if (liveServer) await liveServer.shutdown();
+
     console.log('[SHUTDOWN] Closing Global Browser...');
     await GlobalBrowser.shutdown();
 
@@ -717,6 +726,11 @@ const startServer = async () => {
   liveServer = new LiveServer(liveBus, connection);
   liveServer.attach(server);
   console.log('[LIVE] WebSocket live channel ready at /live/ws (SSE fallback at /live/sse/:userId/:jobId)');
+
+  // Step 12: interactive browser stream (separate upgrade path /browser/ws).
+  browserStreamServer = new BrowserStreamServer(liveBrowserManager);
+  browserStreamServer.attach(server);
+  console.log('[LIVE] Interactive Live Browser View ready at /browser/ws');
 
   return server;
 };
